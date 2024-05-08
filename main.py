@@ -26,6 +26,13 @@ def args_parse():
         #Vai ser um indice de 0-1?
         #Esse arg vai ser required?
     )
+    parser.add_argument(
+        '-o',
+        '--output',
+        default='results/',
+        metavar="",
+        help='Defines the output path'
+    )
     args = parser.parse_args()
     return args
 
