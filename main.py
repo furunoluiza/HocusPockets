@@ -14,12 +14,11 @@ from init import *
 def run_fpocket(input_file, output_path):
     return_code = subprocess.call(['fpocket', '-f' + input_file])
     assert return_code == 0, clrs['r'] + f'Problem running fpocket tool' + clrs['n']
-    base_name = os.path.splitext(os.path.basename(input_file))[0]
-    fpocket_output_dir = f"{base_name}_out"
-    if os.path.isdir(fpocket_output_dir):
+    input_path, file_extension = os.path.split(input_file)
+    base_name = os.path.splitext(os.path.basename(file_extension))[0]
+    fpocket_output_dir = f"{input_path}/{base_name}_out"
+    if output_path:
         shutil.move(fpocket_output_dir, output_path)
-
-    #output n esta funcionando
 
 def main():
     args = args_parse()

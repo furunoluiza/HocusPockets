@@ -33,7 +33,6 @@ def args_parse():
     parser.add_argument(
         '-o',
         '--output',
-        default='./results/',
         metavar="",
         help='Defines the output path'
     )
@@ -44,5 +43,5 @@ def args_parse():
 def verify_input(args):
     assert os.path.isfile(args.input_file), clrs['r'] + f'The input file "{args.input_file}" does not exist or is not a file.' + clrs['n']
     assert args.input_file.endswith('.pdb'), clrs['r'] + f'The input file "{args.input_file}" must be a .pdb extension.' + clrs['n']
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
+    if args.output:
+        assert os.path.isdir(args.output), clrs['r'] + f'The output path "{args.output}" does not exist or is not a directory.' + clrs['n']
