@@ -22,13 +22,13 @@ def args_parse():
         help='Path to a file contaning a protein structure in .pdb format (required!)'
     )
     parser.add_argument(
-        '-i',
-        '--index',
+        '-s',
+        '--score',
         action="store",
         dest="index",
         type=int,
         metavar="",
-        help='Index of this target protein'
+        help='Score of this target protein'
     )
     parser.add_argument(
         '-o',
