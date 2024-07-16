@@ -63,30 +63,28 @@ class PocketProcess:
         base_name = os.path.splitext(os.path.basename(self.input_file))[0]
         extension = os.path.splitext(self.input_file)[1]
         pockets_info = os.path.join(dir_name, f"{base_name}_out", f"{base_name}_info.txt")
-        best_pocket = self.max_drugscore(pockets_info)
+        max_pocket = self.max_drugscore(pockets_info)
 
         if extension == ".cif":
-            best_pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{best_pocket}_atm.cif")
+            max_pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{max_pocket}_atm.cif")
         else:
-            best_pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{best_pocket}_atm.pdb")
+            max_pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{max_pocket}_atm.pdb")
 
-        return best_pocket, best_pocket_path
+        return max_pocket, max_pocket_path
 
-    def copy_best_pocket(self, best_pocket_path):
+    def copy_and_cleanup(self, best_pocket_path):
         if best_pocket_path:
             shutil.copy(best_pocket_path, self.output_path)
-            print(f'Arquivo {os.path.basename(best_pocket_path)} copiado para {os.getcwd()}')
-    
-    def cleanup(self):
         base_name = os.path.splitext(os.path.basename(self.input_file))[0]
         out_dir = os.path.join(os.path.dirname(self.input_file), f"{base_name}_out")
         if os.path.isdir(out_dir):
             shutil.rmtree(out_dir)
 
+
 def print_banner():
     banner = pyfiglet.figlet_format("BINDiS")
     print(clrs['p'] + banner + clrs['n'])
-    print(clrs['b'] + "BINDiS: Binding Interaction Druggability Scoring" + clrs['n'])
+    print(clrs['p'] + "BINDiS: Binding Interaction Druggability Scoring" + clrs['n'])
     print(clrs['n'] + "A tool to prioritize biological targets of the proteome of microorganisms" + clrs['n'])
     print(clrs['n'] + "based on the druggability of interaction sites." + clrs['n'])
     print(clrs['y'] + "=" * 80 + clrs['n'])
@@ -99,10 +97,9 @@ def main():
     output_path = args.output if args.output else os.getcwd()
     pocket_process = PocketProcess(args.input_file, output_path)
     pocket_process.run_fpocket()
-    best_pocket, best_pocket_path = pocket_process.access_pockets()
-    print(f'Pocket com maior score é: {best_pocket}')
-    pocket_process.copy_best_pocket(best_pocket_path)
-    pocket_process.cleanup()
+    max_pocket, max_pocket_path = pocket_process.access_pockets()
+    print(f"Pocket '{max_pocket}' identified with the highest druggability score!")
+    pocket_process.copy_and_cleanup(max_pocket_path)
 
 if __name__ == "__main__":
     main()

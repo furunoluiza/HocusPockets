@@ -3,12 +3,11 @@
 #Imports
 import os
 import argparse
-import pyfiglet
 from main import clrs
 
-# BINDiS: Binding Interaction Druggability Score
-# A tool for identify and prioritize bindig sites on proteins
-# Developed by Luíza Furuno Machado and Laura Pimentel
+# BINDiS: Binding Interaction Druggability Scoring
+# A tool for prioritize biological targets of the proteome of microorganisms
+# based of the druggability of interaction sites
 
 # Set arguments
 def args_parse():
