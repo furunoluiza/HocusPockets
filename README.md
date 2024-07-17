@@ -1,4 +1,4 @@
-# BINDiS
+# BINDiS: Best Interaction Network Druggability Score
 
 BINDiS is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites.
 
