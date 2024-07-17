@@ -6,8 +6,8 @@ import argparse
 from main import clrs
 
 # BINDiS: Binding Interaction Druggability Scoring
-# A tool for prioritize biological targets of the proteome of microorganisms
-# based of the druggability of interaction sites
+# A tool for prioritizing biological targets within the proteome 
+# of microorganisms based on the druggability of interaction sites
 
 # Set arguments
 def args_parse():

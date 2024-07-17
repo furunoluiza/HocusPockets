@@ -5,12 +5,11 @@ import pyfiglet
 import subprocess
 import shutil
 import os
-from Bio.PDB import *
 from init import *
 
 # BINDiS: Binding Interaction Druggability Scoring
-# A tool for prioritize biological targets of the proteome of microorganisms
-# based of the druggability of interaction sites
+# A tool for prioritizing biological targets within the proteome 
+# of microorganisms based on the druggability of interaction sites
 
 # Dictionary for colors
 clrs = {
@@ -85,7 +84,7 @@ def print_banner():
     banner = pyfiglet.figlet_format("BINDiS")
     print(clrs['p'] + banner + clrs['n'])
     print(clrs['p'] + "BINDiS: Binding Interaction Druggability Scoring" + clrs['n'])
-    print(clrs['n'] + "A tool to prioritize biological targets of the proteome of microorganisms" + clrs['n'])
+    print(clrs['n'] + "A tool to prioritize biological targets within the proteome of microorganisms" + clrs['n'])
     print(clrs['n'] + "based on the druggability of interaction sites." + clrs['n'])
     print(clrs['y'] + "=" * 80 + clrs['n'])
 
