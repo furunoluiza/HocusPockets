@@ -1,10 +1,10 @@
 # BINDiS
 
-A tool for prioritize biological targets of the proteome of microorganisms based of the druggability of interaction sites
+BINDiS is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites.
 
 ## Prerequisites
 
-The following packages and external programs are necessery and must be installed.
+Before using BINDiS, ensure the following packages and external programs are installed:
 
 ### Python packages
 
@@ -17,9 +17,14 @@ The following packages and external programs are necessery and must be installed
 ### External software
 > * [fpocket](https://github.com/Discngine/fpocket/tree/master)
 
-## How to use
+## Usage
 
-### Install
-```sh
+You can use BINDiS with either a .pdb or .cif file format:
+```bash
+./main.py -f file.pdb -o output_path
+```
 
+For a full list of options, run:
+```bash
+./main.py -h
 ```
