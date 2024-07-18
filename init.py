@@ -5,13 +5,13 @@ import os
 import argparse
 from main import clrs
 
-# BINDiS: Binding Interaction Druggability Scoring
+# BINDiS: Best Interaction Network Druggability Score
 # A tool for prioritizing biological targets within the proteome 
 # of microorganisms based on the druggability of interaction sites
 
 # Set arguments
 def args_parse():
-    parser = argparse.ArgumentParser(description='BINDiS')
+    parser = argparse.ArgumentParser(description='BINDiS is a tool to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites')
     parser.add_argument(
         '-f',
         '--file',

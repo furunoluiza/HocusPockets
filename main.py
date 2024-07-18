@@ -7,7 +7,7 @@ import shutil
 import os
 from init import *
 
-# BINDiS: Binding Interaction Druggability Scoring
+# BINDiS: Best Interaction Network Druggability Score
 # A tool for prioritizing biological targets within the proteome 
 # of microorganisms based on the druggability of interaction sites
 
@@ -71,21 +71,18 @@ class PocketProcess:
 
         return max_pocket, max_pocket_path
 
-    def copy_and_cleanup(self, best_pocket_path):
-        if best_pocket_path:
-            shutil.copy(best_pocket_path, self.output_path)
+    def copy_and_cleanup(self, max_pocket_path):
+        if max_pocket_path:
+            shutil.copy(max_pocket_path, self.output_path)
         base_name = os.path.splitext(os.path.basename(self.input_file))[0]
         out_dir = os.path.join(os.path.dirname(self.input_file), f"{base_name}_out")
         if os.path.isdir(out_dir):
             shutil.rmtree(out_dir)
 
-
 def print_banner():
     banner = pyfiglet.figlet_format("BINDiS")
     print(clrs['p'] + banner + clrs['n'])
-    print(clrs['p'] + "BINDiS: Binding Interaction Druggability Scoring" + clrs['n'])
-    print(clrs['n'] + "A tool to prioritize biological targets within the proteome of microorganisms" + clrs['n'])
-    print(clrs['n'] + "based on the druggability of interaction sites." + clrs['n'])
+    print(clrs['p'] + "BINDiS: Best Interaction Network Druggability Score" + clrs['n'])
     print(clrs['y'] + "=" * 80 + clrs['n'])
 
 
