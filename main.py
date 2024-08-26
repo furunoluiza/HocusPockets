@@ -11,17 +11,6 @@ from init import *
 # A tool for prioritizing biological targets within the proteome 
 # of microorganisms based on the druggability of interaction sites
 
-# Dictionary for colors
-clrs = {
-    "r": "\033[1;91m",
-    "g": "\033[1;92m",
-    "y": "\033[1;93m",
-    "b": "\033[1;94m",
-    "p": "\033[1;95m",
-    "c": "\033[1;96m",
-    "n": "\033[1;0m",
-}
-
 class PocketProcess:
     def __init__(self, input_file, output_path):
         self.input_file = input_file
@@ -84,7 +73,6 @@ def print_banner():
     print(clrs['p'] + banner + clrs['n'])
     print(clrs['p'] + "BINDiS: Best Interaction Network Druggability Score" + clrs['n'])
     print(clrs['y'] + "=" * 80 + clrs['n'])
-
 
 def main():
     print_banner()

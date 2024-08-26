@@ -9,6 +9,25 @@ from main import clrs
 # A tool for prioritizing biological targets within the proteome 
 # of microorganisms based on the druggability of interaction sites
 
+# Dictionary for colors
+clrs = {
+    "r": "\033[1;91m", # red
+    "g": "\033[1;92m", # green
+    "y": "\033[1;93m", # yellow
+    "b": "\033[1;94m", # blue
+    "p": "\033[1;95m", # purple
+    "c": "\033[1;96m", # cyan
+    "n": "\033[1;0m", # default
+}
+
+description = tw.dedent(clrs[''])
+
+ ____ ___ _   _ ____  _ ____  
+| __ )_ _| \ | |  _ \(_) ___| 
+|  _ \| ||  \| | | | | \___ \ 
+| |_) | || |\  | |_| | |___) |
+|____/___|_| \_|____/|_|____/ 
+
 # Set arguments
 def args_parse():
     parser = argparse.ArgumentParser(description='BINDiS is a tool to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites')
