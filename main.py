@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # Imports
-import pyfiglet
 import subprocess
 import shutil
 import os
@@ -68,14 +67,8 @@ class PocketProcess:
         if os.path.isdir(out_dir):
             shutil.rmtree(out_dir)
 
-def print_banner():
-    banner = pyfiglet.figlet_format("BINDiS")
-    print(clrs['p'] + banner + clrs['n'])
-    print(clrs['p'] + "BINDiS: Best Interaction Network Druggability Score" + clrs['n'])
-    print(clrs['y'] + "=" * 80 + clrs['n'])
-
 def main():
-    print_banner()
+    check_fpocket_installed()
     args = args_parse()
     verify_input(args)
     output_path = args.output if args.output else os.getcwd()

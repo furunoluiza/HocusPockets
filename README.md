@@ -9,10 +9,11 @@ Before using BINDiS, ensure the following packages and external programs are ins
 ### Python packages
 
 > * os
+> * sys
 > * argparse
 > * subprocess
 > * shutil
-> * pyfiglet
+> * textwrap
 
 ### External software
 > * [fpocket](https://github.com/Discngine/fpocket/tree/master)
@@ -21,10 +22,10 @@ Before using BINDiS, ensure the following packages and external programs are ins
 
 You can use BINDiS with either a .pdb or .cif file format:
 ```bash
-./main.py -f file.pdb -o output_path
+python3 ./main.py -f file.pdb -o output_path
 ```
 
 For a full list of options, run:
 ```bash
-./main.py -h
+python3 ./main.py -h
 ```

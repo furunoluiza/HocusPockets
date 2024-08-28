@@ -2,8 +2,10 @@
 
 #Imports
 import os
+import sys
 import argparse
-from main import clrs
+import textwrap as tw
+import subprocess
 
 # BINDiS: Best Interaction Network Druggability Score
 # A tool for prioritizing biological targets within the proteome 
@@ -20,17 +22,26 @@ clrs = {
     "n": "\033[1;0m", # default
 }
 
-description = tw.dedent(clrs[''])
+description = tw.dedent("""\033[1;95m
+                 ____ ___ _   _ ____  _ ____  
+                | __ )_ _| \ | |  _ \(_) ___| 
+                |  _ \| ||  \| | | | | \___ \ 
+                | |_) | || |\  | |_| | |___) |
+                |____/___|_| \_|____/|_|____/  
+                        
+          Best Interaction Network Druggability Score            
+        \033[1;0m""")
 
- ____ ___ _   _ ____  _ ____  
-| __ )_ _| \ | |  _ \(_) ___| 
-|  _ \| ||  \| | | | | \___ \ 
-| |_) | || |\  | |_| | |___) |
-|____/___|_| \_|____/|_|____/ 
+epilogue = tw.dedent("""
+    BINDiS generates a file with the pocket identified as having the highest druggability score
+    """)
 
 # Set arguments
 def args_parse():
-    parser = argparse.ArgumentParser(description='BINDiS is a tool to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites')
+    parser = argparse.ArgumentParser(prog='BINDIS',
+                                    formatter_class=argparse.RawDescriptionHelpFormatter,
+                                    description=description,
+                                    epilog=epilogue)
     parser.add_argument(
         '-f',
         '--file',
@@ -48,6 +59,17 @@ def args_parse():
     )
     args = parser.parse_args()
     return args
+
+#Verify fpocket program
+def check_fpocket_installed():
+    try:
+        subprocess.run(['fpocket', '--help'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        print("Error: 'fpocket' is installed but could not be executed.")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("Error: 'fpocket' is not installed. Please install it and try again.")
+        sys.exit(1)
 
 # Verify input
 def verify_input(args):
