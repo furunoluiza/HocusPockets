@@ -21,10 +21,10 @@ Before using WhichCav, ensure the following packages and external programs are i
 
 You can use WhichCav with either a .pdb or .cif file format:
 ```bash
-python3 ./WhichCav -f file.pdb -o output_path
+python3 ./WhichCav/ -f file.pdb -o output_path
 ```
 
 For a full list of options, run:
 ```bash
-python3 ./WhichCav -h
+python3 ./WhichCav/ -h
 ```
