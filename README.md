@@ -1,10 +1,10 @@
-# BINDiS: Best Interaction Network Druggability Score
+# WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
 
-BINDiS is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites.
+WhichCav is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
 
 ## Prerequisites
 
-Before using BINDiS, ensure the following packages and external programs are installed:
+Before using WhichCav, ensure the following packages and external programs are installed:
 
 ### Python packages
 
@@ -13,19 +13,18 @@ Before using BINDiS, ensure the following packages and external programs are ins
 > * argparse
 > * subprocess
 > * shutil
-> * textwrap
 
 ### External software
 > * [fpocket](https://github.com/Discngine/fpocket/tree/master)
 
 ## Usage
 
-You can use BINDiS with either a .pdb or .cif file format:
+You can use WhichCav with either a .pdb or .cif file format:
 ```bash
-python3 ./main.py -f file.pdb -o output_path
+python3 ./WhichCav/ -f file.pdb -o output_path
 ```
 
 For a full list of options, run:
 ```bash
-python3 ./main.py -h
+python3 ./WhichCav/ -h
 ```
