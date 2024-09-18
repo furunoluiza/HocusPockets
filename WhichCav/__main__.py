@@ -7,9 +7,7 @@ import os
 import pandas as pd
 from Initialize import *
 
-# BINDiS: Best Interaction Network Druggability Score
-# A tool for prioritizing biological targets within the proteome 
-# of microorganisms based on the druggability of interaction sites
+# BINDiS: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
 
 class PocketProcess:
     def __init__(self, input_file, output_path):

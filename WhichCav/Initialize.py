@@ -7,9 +7,7 @@ import argparse
 import textwrap as tw
 import subprocess
 
-# BINDiS: Best Interaction Network Druggability Score
-# A tool for prioritizing biological targets within the proteome 
-# of microorganisms based on the druggability of interaction sites
+# WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
 
 # Dictionary for colors
 clrs = {
@@ -23,22 +21,26 @@ clrs = {
 }
 
 description = tw.dedent("""\033[1;95m
-                 ____ ___ _   _ ____  _ ____  
-                | __ )_ _| \ | |  _ \(_) ___| 
-                |  _ \| ||  \| | | | | \___ \ 
-                | |_) | || |\  | |_| | |___) |
-                |____/___|_| \_|____/|_|____/  
+         __          ___     _      _      _____            
+         \ \        / / |   (_)    | |    / ____|           
+          \ \  /\  / /| |__  _  ___| |__ | |     __ ___   __
+           \ \/  \/ / | '_ \| |/ __| '_ \| |    / _` \ \ / /
+            \  /\  /  | | | | | (__| | | | |___| (_| |\ V / 
+             \/  \/   |_| |_|_|\___|_| |_|\_____\__,_| \_/  
                         
-          Best Interaction Network Druggability Score            
+A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+             
         \033[1;0m""")
 
 epilogue = tw.dedent("""
-    BINDiS generates a file with the pocket identified as having the highest druggability score
+    WhichCav generates a comprehensive dataframe containing the identified cavities, 
+    ranked by their druggability and reactivity scores, providing detailed information 
+    on each site's potential as a biological target.
     """)
 
 # Set arguments
 def args_parse():
-    parser = argparse.ArgumentParser(prog='BINDIS',
+    parser = argparse.ArgumentParser(prog='WhichCav',
                                     formatter_class=argparse.RawDescriptionHelpFormatter,
                                     description=description,
                                     epilog=epilogue)

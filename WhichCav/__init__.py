@@ -1,5 +1,5 @@
 """
-BINDiS: Best Interaction Network Druggability Score
+WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
 
 Authors: Machado, L.F.; Torres, P.H.M.
 
