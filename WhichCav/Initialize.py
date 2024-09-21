@@ -45,13 +45,13 @@ def args_parse():
                                     description=description,
                                     epilog=epilogue)
     parser.add_argument(
-        '-f',
-        '--file',
+        '-i',
+        '--input',
         required=True, 
         action="store",
-        dest="input_file", 
+        dest="input_path", 
         metavar = "",
-        help='Path to a file contaning a protein structure in .pdb format (required!)'
+        help='Path to a file or directory contaning a protein structure in .pdb format (required!)'
     )
     parser.add_argument(
         '-o',
@@ -76,7 +76,16 @@ def check_fpocket_installed():
 
 # Verify input
 def verify_input(args):
-    assert os.path.isfile(args.input_file), clrs['r'] + f'The input file "{args.input_file}" does not exist or is not a file.' + clrs['n']
-    assert args.input_file.endswith(('.pdb', '.cif')), clrs['r'] + f'The input file "{args.input_file}" must be a .pdb or a .cif extension.' + clrs['n']
+    if os.path.isfile(args.input_path):
+        assert args.input_path.endswith(('.pdb', '.cif')), clrs['r'] + f'The input file "{args.input_file}" must be a .pdb or a .cif extension.' + clrs['n']
+    elif os.path.isdir(args.input_path):
+        files = os.listdir(args.input_path)
+        pdb_cif_files = [f for f in files if f.endswith(('.pdb', '.cif'))]
+        other_files = [f for f in files if not f.endswith(('.pdb', '.cif'))]
+        assert len(pdb_cif_files) > 0, clrs['r'] + f'The directory "{args.input_path}" does not contain any .pdb or .cif files.' + clrs['n']
+        for file in other_files:
+            print(clrs['y'] + f'Warning: File "{file}" is not a .pdb or .cif. Skipping...' + clrs['n'])
+    else:
+        assert False, clrs['r'] + f'The input path "{args.input_path}" is neither a file nor a directory.' + clrs['n']
     if args.output:
         assert os.path.isdir(args.output), clrs['r'] + f'The output path "{args.output}" does not exist or is not a directory.' + clrs['n']

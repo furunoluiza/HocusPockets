@@ -9,13 +9,17 @@ from Initialize import *
 
 # BINDiS: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
 
-class PocketProcess:
-    def __init__(self, input_file, output_path):
-        self.input_file = input_file
+class CavityFinder:
+    def __init__(self, input_path, output_path):
+        self.input_path = input_path
         self.output_path = output_path
 
-    def run_fpocket(self):
-        return_code = subprocess.call(['fpocket', '-f' + self.input_file])
+class FpocketFinder(CavityFinder):
+    def __init__(self, input_path, output_path):
+       super().__init__(input_path, output_path)
+
+    def run_fpocket(self, input_file):
+        return_code = subprocess.call(['fpocket', '-f' + input_file])
         assert return_code == 0, clrs['r'] + f'Problem running fpocket tool' + clrs['n']
 
     @staticmethod
@@ -41,13 +45,13 @@ class PocketProcess:
     def druggable_pockets(self, pockets_info):
         pockets = self.parse_info(pockets_info)
         drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > 0.8]
-    
+        
         return drug_pockets
 
-    def access_pockets(self):
-        dir_name = os.path.dirname(self.input_file)
-        base_name = os.path.splitext(os.path.basename(self.input_file))[0]
-        extension = os.path.splitext(self.input_file)[1]
+    def access_pockets(self, input_file):
+        dir_name = os.path.dirname(input_file)
+        base_name = os.path.splitext(os.path.basename(input_file))[0]
+        extension = os.path.splitext(input_file)[1]
         pockets_info = os.path.join(dir_name, f"{base_name}_out", f"{base_name}_info.txt")
         filtered_pockets = self.druggable_pockets(pockets_info)
 
@@ -58,19 +62,24 @@ class PocketProcess:
                 pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_atm.cif")
             else:
                 pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_atm.pdb")
-            pockets_paths.append((pocket_number, pocket_path))
+
+        pocket['new_path'] = pocket_path
+        pockets_paths.append(pocket)
 
         return pockets_paths
 
-    def pockets_df(seff, drug_pockets):
+    def pockets_df(self, drug_pockets, protein_name):
         df = pd.DataFrame(drug_pockets)
-        df.to_csv('pockets.csv', sep='\t', index=False)
-    
+        df['protein'] = protein_name
+
         return df
 
-    def copy_and_cleanup(self, pockets_paths):
+    def copy_and_cleanup(self, pockets_paths, input_file):
+        print("Pocket_path", pockets_paths)
         updated_pockets_paths = []
-        for pocket_number, original_path in pockets_paths:
+        for pocket in pockets_paths:
+            pocket_number = pocket['pocket_number']
+            original_path = pocket['new_path']
             if os.path.isfile(original_path):
                 new_path = os.path.join(self.output_path, os.path.basename(original_path))
                 shutil.copy(original_path, new_path)
@@ -78,12 +87,35 @@ class PocketProcess:
                 'pocket_number': pocket_number,
                 'new_path': new_path
             })
-        base_name = os.path.splitext(os.path.basename(self.input_file))[0]
-        out_dir = os.path.join(os.path.dirname(self.input_file), f"{base_name}_out")
+        base_name = os.path.splitext(os.path.basename(input_file))[0]
+        out_dir = os.path.join(os.path.dirname(input_file), f"{base_name}_out")
+        print("Output: " , out_dir)
         if os.path.isdir(out_dir):
             shutil.rmtree(out_dir)
 
         return updated_pockets_paths
+    
+    def process_directory(self):
+        # If the input is a directory, process all .pdb files in it
+        all_dfs = []
+        for root, _, files in os.walk(self.input_path):
+            for file in files:
+                if file.endswith(('.pdb', '.cif')):
+                    input_file = os.path.join(root, file)
+                    self.run_fpocket(input_file)
+                    filtered_pockets = self.access_pockets(input_file)
+                    updated_pockets_paths = self.copy_and_cleanup(filtered_pockets, input_file)
+                    pockets_df = self.pockets_df(updated_pockets_paths, os.path.basename(input_file))
+                    all_dfs.append(pockets_df)
+                    for pocket in updated_pockets_paths:
+                        pocket_number = pocket['pocket_number']
+                        new_path = pocket['new_path']
+                        pockets_df.loc[pockets_df['pocket_number'] == pocket_number, 'pocket_path'] = new_path
+
+        # Concatenate all dataframes into one
+        if all_dfs:
+            final_df = pd.concat(all_dfs, ignore_index=True)
+            final_df.to_csv(os.path.join(self.output_path, 'all_pockets.csv'), sep='\t', index=False)
 
 
 def main():
@@ -91,11 +123,15 @@ def main():
     args = args_parse()
     verify_input(args)
     output_path = args.output if args.output else os.getcwd()
-    pocket_process = PocketProcess(args.input_file, output_path)
-    pocket_process.run_fpocket()
-    pockets_info = pocket_process.access_pockets()
-    update_pockets_paths = pocket_process.copy_and_cleanup(pockets_info)
-    df = pocket_process.pockets_df(update_pockets_paths)
+    cavity_finder = FpocketFinder(args.input_path, output_path)
+    if os.path.isdir(args.input_path):
+        cavity_finder.process_directory()
+    else:
+        cavity_finder.run_fpocket(args.input_path)
+        pockets_info = cavity_finder.access_pockets(args.input_path)
+        update_pockets_paths = cavity_finder.copy_and_cleanup(pockets_info, args.input_path)
+        df = cavity_finder.pockets_df(update_pockets_paths, os.path.basename(args.input_path))
+        df.to_csv('pockets.csv', sep='\t', index=False)
 
 if __name__ == "__main__":
     main()
