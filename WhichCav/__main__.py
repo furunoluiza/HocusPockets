@@ -70,12 +70,11 @@ class FpocketFinder(CavityFinder):
 
     def pockets_df(self, drug_pockets, protein_name):
         df = pd.DataFrame(drug_pockets)
-        df['protein'] = protein_name
+        df.insert(0, 'protein', protein_name)
 
         return df
 
     def copy_and_cleanup(self, pockets_paths, input_file):
-        print("Pocket_path", pockets_paths)
         updated_pockets_paths = []
         for pocket in pockets_paths:
             pocket_number = pocket['pocket_number']
@@ -85,11 +84,10 @@ class FpocketFinder(CavityFinder):
                 shutil.copy(original_path, new_path)
                 updated_pockets_paths.append({
                 'pocket_number': pocket_number,
-                'new_path': new_path
+                'path': new_path
             })
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         out_dir = os.path.join(os.path.dirname(input_file), f"{base_name}_out")
-        print("Output: " , out_dir)
         if os.path.isdir(out_dir):
             shutil.rmtree(out_dir)
 
@@ -107,10 +105,6 @@ class FpocketFinder(CavityFinder):
                     updated_pockets_paths = self.copy_and_cleanup(filtered_pockets, input_file)
                     pockets_df = self.pockets_df(updated_pockets_paths, os.path.basename(input_file))
                     all_dfs.append(pockets_df)
-                    for pocket in updated_pockets_paths:
-                        pocket_number = pocket['pocket_number']
-                        new_path = pocket['new_path']
-                        pockets_df.loc[pockets_df['pocket_number'] == pocket_number, 'pocket_path'] = new_path
 
         # Concatenate all dataframes into one
         if all_dfs:
@@ -122,7 +116,7 @@ def main():
     check_fpocket_installed()
     args = args_parse()
     verify_input(args)
-    output_path = args.output if args.output else os.getcwd()
+    output_path = os.path.abspath(args.output) if args.output else os.getcwd()
     cavity_finder = FpocketFinder(args.input_path, output_path)
     if os.path.isdir(args.input_path):
         cavity_finder.process_directory()
