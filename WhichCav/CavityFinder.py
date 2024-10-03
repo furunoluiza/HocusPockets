@@ -35,6 +35,7 @@ class CavityFinder:
 
         concavity_finder = ConCavityFinder(self.input_path, self.output_path)
         concavity_finder.run_concavity(self.input_path)
+        concavity_finder.access_concavity(self.input_path)
 
 class ConCavityFinder(CavityFinder):
     def __init__(self, input_path, output_path):
@@ -48,10 +49,38 @@ class ConCavityFinder(CavityFinder):
             '-res_map_method', 'blur',
             input_file,
             '-print_grid_pdb', '1',
-            'output'
+            'concavity'
         ]
         return_code = subprocess.call(command)
         assert return_code == 0, clrs['r'] + f'Problem running ConCavity tool' + clrs['n']
+    
+    def process_cavities(self, pockets_info, output_path):
+        cavities = {}
+    
+        # Lê o arquivo de entrada
+        with open(pockets_info, 'r') as file:
+            for line in file:
+              # Verifica se a linha começa com 'HETATM' para capturar as coordenadas
+                if line.startswith("HETATM"):
+                    # Extrai o índice da cavidade da linha
+                    cavity_index = line[22:26].strip()  # O índice da cavidade é o 22º caractere (baseado em 0)
+                
+                    # Cria uma lista para armazenar as coordenadas da cavidade
+                    if cavity_index not in cavities:
+                        cavities[cavity_index] = []
+                    cavities[cavity_index].append(line)
+
+    # Usando o output_path para salvar os arquivos
+        for index, coordinates in cavities.items():
+            output_file = os.path.join(output_path, f"cavity_{index}.pdb")
+            with open(output_file, 'w') as out_file:
+                out_file.writelines(coordinates)
+
+    
+    def access_concavity(self, input_file):
+        base_name = os.path.splitext(os.path.basename(input_file))[0]
+        pockets_info = f"{base_name}_concavity_pocket.pdb"
+        self.process_cavities(pockets_info, self.output_path)
 
 class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path):
