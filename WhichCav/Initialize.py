@@ -74,6 +74,16 @@ def check_fpocket_installed():
         print("Error: 'fpocket' is not installed. Please install it and try again.")
         sys.exit(1)
 
+def check_concavity_installed():
+    try:
+        subprocess.run(['concavity'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        print("Error: 'ConCavity' is installed but could not be executed.")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("Error: 'Concavity' is not installed. Please install it and try again.")
+        sys.exit(1)
+
 # Verify input
 def verify_input(args):
     if os.path.isfile(args.input_path):

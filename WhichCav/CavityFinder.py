@@ -23,14 +23,15 @@ class CavityFinder:
             pockets_info = cavity_finder.access_pockets(self.input_path)
             update_pockets_paths = cavity_finder.copy_and_cleanup(pockets_info, self.input_path)
             df = cavity_finder.pockets_df(update_pockets_paths, os.path.basename(self.input_path))
-            df.to_csv('pockets.csv', sep='\t', index=False)
-
+            output_file = os.path.join(self.output_path, 'pockets.csv')
+            df.to_csv(output_file, sep='\t', index=False)
 class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path):
        super().__init__(input_path, output_path)
 
     def run_fpocket(self, input_file):
-        return_code = subprocess.call(['fpocket', '-f' + input_file])
+        with open(os.devnull, 'w') as devnull:
+            return_code = subprocess.call(['fpocket', '-f' + input_file], stdout=devnull, stderr=devnull)
         assert return_code == 0, clrs['r'] + f'Problem running fpocket tool' + clrs['n']
 
     @staticmethod
@@ -55,7 +56,7 @@ class FpocketFinder(CavityFinder):
     
     def druggable_pockets(self, pockets_info):
         pockets = self.parse_info(pockets_info)
-        drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > 0.8]
+        drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > 0.5]
         
         return drug_pockets
 
@@ -70,12 +71,12 @@ class FpocketFinder(CavityFinder):
         for pocket in filtered_pockets:
             pocket_number = pocket['pocket_number']
             if extension == ".cif":
-                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_atm.cif")
+                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
             else:
-                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_atm.pdb")
+                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
 
-        pocket['new_path'] = pocket_path
-        pockets_paths.append(pocket)
+            pocket['new_path'] = pocket_path
+            pockets_paths.append(pocket)
 
         return pockets_paths
 
@@ -87,11 +88,12 @@ class FpocketFinder(CavityFinder):
 
     def copy_and_cleanup(self, pockets_paths, input_file):
         updated_pockets_paths = []
-
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         protein_output_dir = os.path.join(self.output_path, base_name)
-        if not os.path.exists(protein_output_dir):
-            os.makedirs(protein_output_dir)
+        if os.path.exists(protein_output_dir):
+            shutil.rmtree(protein_output_dir)
+        
+        os.makedirs(protein_output_dir)
 
         for pocket in pockets_paths:
             pocket_number = pocket['pocket_number']

@@ -9,6 +9,7 @@ from CavityFinder import *
 
 def main():
     check_fpocket_installed()
+    check_concavity_installed()
     args = args_parse()
     verify_input(args)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
