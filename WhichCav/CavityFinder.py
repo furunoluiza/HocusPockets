@@ -13,18 +13,46 @@ class CavityFinder:
     def __init__(self, input_path, output_path):
         self.input_path = input_path
         self.output_path = output_path
-
+    
     def find_cavities(self):
-        cavity_finder = FpocketFinder(self.input_path, self.output_path)
         if os.path.isdir(self.input_path):
-            cavity_finder.process_directory()
+            self.find_cavities_in_directory()
         else:
-            cavity_finder.run_fpocket(self.input_path)
-            pockets_info = cavity_finder.access_pockets(self.input_path)
-            update_pockets_paths = cavity_finder.copy_and_cleanup(pockets_info, self.input_path)
-            df = cavity_finder.pockets_df(update_pockets_paths, os.path.basename(self.input_path))
-            output_file = os.path.join(self.output_path, 'pockets.csv')
-            df.to_csv(output_file, sep='\t', index=False)
+            self.find_cavities_in_file()
+    
+    def find_cavities_in_directory(self):
+        fpocket_finder = FpocketFinder(self.input_path, self.output_path)
+        fpocket_finder.process_directory()
+
+    def find_cavities_in_file(self):
+        fpocket_finder = FpocketFinder(self.input_path, self.output_path)
+        fpocket_finder.run_fpocket(self.input_path)
+        pockets_info = fpocket_finder.access_pockets(self.input_path)
+        update_pockets_paths = fpocket_finder.copy_and_cleanup(pockets_info, self.input_path)
+        df = fpocket_finder.pockets_df(update_pockets_paths, os.path.basename(self.input_path))
+        output_file = os.path.join(self.output_path, 'pockets_fpocket.csv')
+        df.to_csv(output_file, sep='\t', index=False)
+
+        concavity_finder = ConCavityFinder(self.input_path, self.output_path)
+        concavity_finder.run_concavity(self.input_path)
+
+class ConCavityFinder(CavityFinder):
+    def __init__(self, input_path, output_path):
+        super().__init__(input_path, output_path)
+    
+    def run_concavity(self, input_file):
+        command = [
+            'concavity',
+            '-grid_method', 'pocketfinder',
+            '-extraction_method', 'search',
+            '-res_map_method', 'blur',
+            input_file,
+            '-print_grid_pdb', '1',
+            'output'
+        ]
+        return_code = subprocess.call(command)
+        assert return_code == 0, clrs['r'] + f'Problem running ConCavity tool' + clrs['n']
+
 class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path):
        super().__init__(input_path, output_path)
