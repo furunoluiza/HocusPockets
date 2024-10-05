@@ -64,6 +64,13 @@ def args_parse():
         action='store_true',
         help='Enables verbose mode'
     )
+    parser.add_argument(
+        '--druggability-score',
+        type=float,
+        default=0.5,
+        metavar="",
+        help='Minimum druggability score for Fpocket (default: 0.5). Only pockets with a score greater than this will be considered.'
+    )
     args = parser.parse_args()
     print(description)
     return args
