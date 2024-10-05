@@ -59,14 +59,20 @@ def args_parse():
         metavar="",
         help='Defines the output path'
     )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Enables verbose mode'
+    )
     args = parser.parse_args()
     print(description)
     return args
 
 #Verify fpocket program
-def check_fpocket_installed():
+def check_fpocket_installed(verbose_handler):
     try:
         subprocess.run(['fpocket', '--help'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        verbose_handler.output("'fpocket' is installed and accessible.")
     except subprocess.CalledProcessError:
         print("Error: 'fpocket' is installed but could not be executed.")
         sys.exit(1)
@@ -74,9 +80,10 @@ def check_fpocket_installed():
         print("Error: 'fpocket' is not installed. Please install it and try again.")
         sys.exit(1)
 
-def check_concavity_installed():
+def check_concavity_installed(verbose_handler):
     try:
         subprocess.run(['concavity'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        verbose_handler.output("'ConCavity' is installed and accessible.")
     except subprocess.CalledProcessError:
         print("Error: 'ConCavity' is installed but could not be executed.")
         sys.exit(1)

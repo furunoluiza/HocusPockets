@@ -57,20 +57,14 @@ class ConCavityFinder(CavityFinder):
     def process_cavities(self, pockets_info, output_path):
         cavities = {}
     
-        # Lê o arquivo de entrada
         with open(pockets_info, 'r') as file:
             for line in file:
-              # Verifica se a linha começa com 'HETATM' para capturar as coordenadas
                 if line.startswith("HETATM"):
-                    # Extrai o índice da cavidade da linha
-                    cavity_index = line[22:26].strip()  # O índice da cavidade é o 22º caractere (baseado em 0)
-                
-                    # Cria uma lista para armazenar as coordenadas da cavidade
+                    cavity_index = line[22:26].strip() 
                     if cavity_index not in cavities:
                         cavities[cavity_index] = []
                     cavities[cavity_index].append(line)
 
-    # Usando o output_path para salvar os arquivos
         for index, coordinates in cavities.items():
             output_file = os.path.join(output_path, f"cavity_{index}.pdb")
             with open(output_file, 'w') as out_file:
