@@ -100,15 +100,12 @@ class ConCavityFinder(CavityFinder):
     def process_directory(self):
         for root, _, files in os.walk(self.input_path):
             for file in files:
-                if file.endswith('.pdb'):  # Verifique as extensões dos arquivos
+                if file.endswith('.pdb'):
                     input_file = os.path.join(root, file)
-                    # Crie um diretório para a proteína, se não existir
                     protein_name = os.path.splitext(os.path.basename(input_file))[0]
                     protein_output_dir = os.path.join(self.output_path, protein_name)
                     os.makedirs(protein_output_dir, exist_ok=True)
-
-                    # Ajuste o output_path para o diretório da proteína
-                    self.run_concavity(input_file)  # Chame o método run_concavity para cada arquivo
+                    self.run_concavity(input_file)
 
 class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path, verbose_handler, druggability_score):
@@ -167,36 +164,29 @@ class FpocketFinder(CavityFinder):
     def copy_and_cleanup(self, pockets_paths, input_file):
         updated_pockets_paths = []
         protein_name = os.path.splitext(os.path.basename(input_file))[0]
-        protein_output_dir = os.path.join(self.output_path, protein_name)  # Diretório específico da proteína
-        cavities_dir = os.path.join(protein_output_dir, 'fpocket')  # Novo diretório para as cavidades
-        os.makedirs(cavities_dir, exist_ok=True)  # Cria o diretório de cavidades se não existir
-
-        # Limpa o diretório de cavidades se já existir
+        protein_output_dir = os.path.join(self.output_path, protein_name)
+        cavities_dir = os.path.join(protein_output_dir, 'fpocket')
+        os.makedirs(cavities_dir, exist_ok=True)
         if os.path.exists(cavities_dir):
             shutil.rmtree(cavities_dir)  
-            os.makedirs(cavities_dir)  # Cria novamente após remoção
-
+            os.makedirs(cavities_dir)
         for pocket in pockets_paths:
             pocket_number = pocket['pocket_number']
             original_path = pocket['new_path']
             if os.path.isfile(original_path):
-                new_path = os.path.join(cavities_dir, os.path.basename(original_path))  # Salva no diretório de cavidades
+                new_path = os.path.join(cavities_dir, os.path.basename(original_path))
                 shutil.copy(original_path, new_path)
                 updated_pockets_paths.append({'pocket_number': pocket_number, 'path': new_path})
-
-        # Limpa arquivos temporários
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         out_dir = os.path.join(os.path.dirname(input_file), f"{base_name}_out")
         if os.path.isdir(out_dir):
-            shutil.rmtree(out_dir)  # Remove o diretório de saída do fpocket, se existir
-
+            shutil.rmtree(out_dir)
         return updated_pockets_paths
-    
+
     def process_file(self):
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
-        protein_output_dir = os.path.join(self.output_path, protein_name)  # NOVO: Define diretório específico da proteína
-        os.makedirs(protein_output_dir, exist_ok=True)  # NOVO: Cria diretório se não existir
-        
+        protein_output_dir = os.path.join(self.output_path, protein_name)
+        os.makedirs(protein_output_dir, exist_ok=True)
         self.run_fpocket(self.input_path)
         pockets_info = self.access_pockets(self.input_path)
         update_pockets_paths = self.copy_and_cleanup(pockets_info, self.input_path)
@@ -210,16 +200,12 @@ class FpocketFinder(CavityFinder):
             for file in files:
                 if file.endswith(('.pdb', '.cif')):
                     input_file = os.path.join(root, file)
-                    # Muda o diretório de saída para o diretório específico da proteína
                     protein_name = os.path.splitext(os.path.basename(input_file))[0]
-                    protein_output_dir = os.path.join(self.output_path, protein_name)  # NOVO: Define diretório específico da proteína
-                    os.makedirs(protein_output_dir, exist_ok=True)  # NOVO: Cria diretório se não existir
-
+                    protein_output_dir = os.path.join(self.output_path, protein_name)
+                    os.makedirs(protein_output_dir, exist_ok=True)
                     self.run_fpocket(input_file)
                     filtered_pockets = self.access_pockets(input_file)
                     updated_pockets_paths = self.copy_and_cleanup(filtered_pockets, input_file)
                     pockets_df = self.pockets_df(updated_pockets_paths, os.path.basename(input_file))
-
-                    # Muda o local do arquivo CSV para o diretório específico da proteína
-                    pockets_df.to_csv(os.path.join(protein_output_dir, 'pockets_fpocket.csv'), sep='\t', index=False)  # NOVO: Salva o CSV no diretório da proteína
+                    pockets_df.to_csv(os.path.join(protein_output_dir, 'pockets_fpocket.csv'), sep='\t', index=False) 
                     all_dfs.append(pockets_df)
