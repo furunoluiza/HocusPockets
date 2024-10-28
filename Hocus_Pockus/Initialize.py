@@ -64,7 +64,7 @@ def args_parse():
         help='Enables verbose mode'
     )
     parser.add_argument(
-        '--druggability-score',
+        '--fpocket-score',
         type=float,
         default=0.5,
         metavar="",

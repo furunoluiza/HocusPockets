@@ -10,11 +10,11 @@ from Initialize import *
 # Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
 
 class CavityFinder:
-    def __init__(self, input_path, output_path, verbose_handler, druggability_score):
+    def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
         self.input_path = input_path
         self.output_path = output_path
         self.verbose_handler = verbose_handler
-        self.druggability_score = druggability_score
+        self.fpocket_score = fpocket_score
     
     def find_cavities(self):
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
@@ -26,25 +26,25 @@ class CavityFinder:
             self.find_cavities_in_file(protein_output_dir)
     
     def find_cavities_in_directory(self):
-        fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.druggability_score)
+        fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.fpocket_score)
         fpocket_finder.process_directory()
-        concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.verbose_handler, self.druggability_score)
+        concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.verbose_handler, self.fpocket_score)
         concavity_finder.process_directory()
 
 
     def find_cavities_in_file(self, protein_output_dir):
-        fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.druggability_score)
+        fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.fpocket_score)
         fpocket_finder.process_file()
-        concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.druggability_score)
+        concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path)
 
 class ConCavityFinder(CavityFinder):
-    def __init__(self, input_path, output_path, verbose_handler, druggability_score):
-        super().__init__(input_path, output_path, verbose_handler, druggability_score)
+    def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
+        super().__init__(input_path, output_path, verbose_handler, fpocket_score)
     
     def access_concavity(self, input_file,method_output_dir, method):
         base_name = os.path.splitext(os.path.basename(input_file))[0]
-        pockets_info = f"{base_name}_{method}_pocket.pdb"
+        pockets_info = f"{base_name}_{method}_residue.pdb"
         self.process_cavities(pockets_info, method_output_dir)
     
     def cleanup_files(self, input_file, method):
@@ -84,18 +84,35 @@ class ConCavityFinder(CavityFinder):
             self.cleanup_files(input_file, method)
     
     def process_cavities(self, pockets_info, output_path):
-        cavities = {}
+        cavities = []
+        current_cavity = []
+        capture_cavity = False
+
         with open(pockets_info, 'r') as file:
             for line in file:
-                if line.startswith("HETATM"):
-                    cavity_index = line[22:26].strip() 
-                    if cavity_index not in cavities:
-                        cavities[cavity_index] = []
-                    cavities[cavity_index].append(line)
-        for index, coordinates in cavities.items():
-            output_file = os.path.join(output_path, f"cavity_{index}.pdb")
+                if line.startswith("ATOM"):
+                    score = float(line[60:66].strip())  # Coluna 61-66
+
+                    if score > 0:
+                        if not capture_cavity:
+                            capture_cavity = True
+                        current_cavity.append(line)
+                    else:
+                        if capture_cavity:
+                            # Se a cavidade terminou (voltou a 0), salva a atual cavidade
+                            cavities.append(current_cavity)
+                            current_cavity = []
+                            capture_cavity = False
+
+    # Caso uma cavidade esteja ativa no final do arquivo
+        if current_cavity:
+            cavities.append(current_cavity)
+
+    # Escreve cada cavidade capturada em arquivos separados
+        for i, cavity in enumerate(cavities, 1):
+            output_file = os.path.join(output_path, f"cavity_{i}.pdb")
             with open(output_file, 'w') as out_file:
-                out_file.writelines(coordinates)
+                out_file.writelines(cavity)
  
     def process_directory(self):
         for root, _, files in os.walk(self.input_path):
@@ -108,8 +125,8 @@ class ConCavityFinder(CavityFinder):
                     self.run_concavity(input_file)
 
 class FpocketFinder(CavityFinder):
-    def __init__(self, input_path, output_path, verbose_handler, druggability_score):
-       super().__init__(input_path, output_path, verbose_handler, druggability_score)
+    def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
+       super().__init__(input_path, output_path, verbose_handler, fpocket_score)
 
     def run_fpocket(self, input_file):
         with open(os.devnull, 'w') as devnull:
@@ -134,7 +151,7 @@ class FpocketFinder(CavityFinder):
             pockets.append(current_pocket)
         return pockets
     
-    def druggable_pockets(self, pockets_info, druggability_score):
+    def druggable_pockets(self, pockets_info, fpocket_score):
         pockets = self.parse_info(pockets_info)
         drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > 0.5]
         return drug_pockets
@@ -144,14 +161,14 @@ class FpocketFinder(CavityFinder):
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         extension = os.path.splitext(input_file)[1]
         pockets_info = os.path.join(dir_name, f"{base_name}_out", f"{base_name}_info.txt")
-        filtered_pockets = self.druggable_pockets(pockets_info, self.druggability_score)
+        filtered_pockets = self.druggable_pockets(pockets_info, self.fpocket_score)
         pockets_paths = []
         for pocket in filtered_pockets:
             pocket_number = pocket['pocket_number']
             if extension == ".cif":
-                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
+                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_atm.cif")
             else:
-                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
+                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_atm.pdb")
             pocket['new_path'] = pocket_path
             pockets_paths.append(pocket)
         return pockets_paths
