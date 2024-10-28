@@ -5,7 +5,7 @@ import os
 from Initialize import *
 from CavityFinder import *
 
-# WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
 class VerboseHandler:
     def __init__(self, verbose, output_path):
         self.verbose = verbose

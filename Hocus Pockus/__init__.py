@@ -1,5 +1,5 @@
 """
-WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
 
 Authors: Machado, L.F.; Torres, P.H.M.
 

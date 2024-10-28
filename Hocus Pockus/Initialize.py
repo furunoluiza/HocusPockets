@@ -7,7 +7,7 @@ import argparse
 import textwrap as tw
 import subprocess
 
-# WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
 
 # Dictionary for colors
 clrs = {
@@ -21,19 +21,18 @@ clrs = {
 }
 
 description = tw.dedent("""\033[1;95m
-         __          ___     _      _      _____            
-         \ \        / / |   (_)    | |    / ____|           
-          \ \  /\  / /| |__  _  ___| |__ | |     __ ___   __
-           \ \/  \/ / | '_ \| |/ __| '_ \| |    / _` \ \ / /
-            \  /\  /  | | | | | (__| | | | |___| (_| |\ V / 
-             \/  \/   |_| |_|_|\___|_| |_|\_____\__,_| \_/  
+         _   _                        ____            _
+        | | | | ___   ___ _   _ ___  |  _ \ ___   ___| | ___   _ ___
+        | |_| |/ _ \ / __| | | / __| | |_) / _ \ / __| |/ / | | / __|
+        |  _  | (_) | (__| |_| \__ \ |  __/ (_) | (__|   <| |_| \__ \\
+        |_| |_|\___/ \___|\__,_|___/ |_|   \___/ \___|_|\_\\__,__|___/
                         
-A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+      Holistic Optimization of Computational Utility for Scoring Pockets
              
         \033[1;0m""")
 
 epilogue = tw.dedent("""
-    WhichCav generates a comprehensive dataframe containing the identified cavities, 
+    Hocus Pockus generates a comprehensive dataframe containing the identified cavities, 
     ranked by their druggability and reactivity scores, providing detailed information 
     on each site's potential as a biological target.
     """)

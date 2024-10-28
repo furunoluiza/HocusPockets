@@ -7,7 +7,7 @@ import os
 import pandas as pd
 from Initialize import *
 
-# WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
 
 class CavityFinder:
     def __init__(self, input_path, output_path, verbose_handler, druggability_score):
