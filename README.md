@@ -1,6 +1,6 @@
-# WhichCav: A Tool for Druggability-Driven and Reactivity-Based Target Prioritization
+# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
 
-WhichCav is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
+Hocus Pockus is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
 
 ## Prerequisites
 
