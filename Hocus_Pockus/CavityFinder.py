@@ -5,6 +5,8 @@ import subprocess
 import shutil
 import os
 import pandas as pd
+import numpy as np
+from scipy.spatial import ConvexHull
 from Initialize import *
 
 # Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
@@ -44,8 +46,9 @@ class ConCavityFinder(CavityFinder):
     
     def access_concavity(self, input_file,method_output_dir, method):
         base_name = os.path.splitext(os.path.basename(input_file))[0]
-        pockets_info = f"{base_name}_{method}_residue.pdb"
-        self.process_cavities(pockets_info, method_output_dir)
+        pockets_info = f"{base_name}_{method}_pocket.pdb"
+        residue_info = f"{base_name}_{method}_residue.pdb" #oi
+        self.process_cavities(pockets_info, residue_info, method_output_dir)
     
     def cleanup_files(self, input_file, method):
         base_name = os.path.splitext(os.path.basename(input_file))[0]
@@ -83,37 +86,63 @@ class ConCavityFinder(CavityFinder):
             self.access_concavity(input_file, method_output_dir, method)
             self.cleanup_files(input_file, method)
     
-    def process_cavities(self, pockets_info, output_path):
-        cavities = []
-        current_cavity = []
-        capture_cavity = False
+    def calculate_geometric_center(self, lines):
+            coordinates = []
+            for line in lines:
+                x = float(line[30:38].strip())
+                y = float(line[38:46].strip())
+                z = float(line[46:54].strip())
+                coordinates.append([x, y, z])
+            return np.mean(coordinates, axis=0) if coordinates else None
+    
+    def calculate_pocket_volume(self, lines):
+        coordinates = []
+        for line in lines:
+            x = float(line[30:38].strip())
+            y = float(line[38:46].strip())
+            z = float(line[46:54].strip())
+            coordinates.append([x, y, z])
 
+        hull = ConvexHull(coordinates)
+        return hull.volume if hull else 0
+
+    def process_cavities(self, pockets_info, residue_info, output_path):
+        cavities = {}
+        current_cavity = []
         with open(pockets_info, 'r') as file:
             for line in file:
+                if line.startswith("HETATM"):
+                    cavity_index = line[22:26].strip() 
+                    if cavity_index not in cavities:
+                        cavities[cavity_index] = []
+                    cavities[cavity_index].append(line)
+
+        residue_coordinates = []
+        with open(residue_info, 'r') as file:
+            for line in file:
                 if line.startswith("ATOM"):
-                    score = float(line[60:66].strip())  # Coluna 61-66
+                    residue_coordinates.append(line)
+        
+        for index, coordinates in cavities.items():
+            geom_center = self.calculate_geometric_center(coordinates)
+            pocket_volume = self.calculate_pocket_volume(coordinates)  # Calcula o volume da cavidade
 
-                    if score > 0:
-                        if not capture_cavity:
-                            capture_cavity = True
-                        current_cavity.append(line)
-                    else:
-                        if capture_cavity:
-                            # Se a cavidade terminou (voltou a 0), salva a atual cavidade
-                            cavities.append(current_cavity)
-                            current_cavity = []
-                            capture_cavity = False
+            if geom_center is not None:
+                close_residues = []
+                for res_line in residue_coordinates:
+                    x = float(res_line[30:38].strip())
+                    y = float(res_line[38:46].strip())
+                    z = float(res_line[46:54].strip())
+                    distance = np.linalg.norm(np.array([x, y, z]) - geom_center)
 
-    # Caso uma cavidade esteja ativa no final do arquivo
-        if current_cavity:
-            cavities.append(current_cavity)
+                    # Seleciona resíduos com base na distância e volume
+                    if distance < pocket_volume ** (1/3):  # Usa a raiz cúbica do volume como um fator de seleção
+                        close_residues.append(res_line)
 
-    # Escreve cada cavidade capturada em arquivos separados
-        for i, cavity in enumerate(cavities, 1):
-            output_file = os.path.join(output_path, f"cavity_{i}.pdb")
-            with open(output_file, 'w') as out_file:
-                out_file.writelines(cavity)
- 
+                output_file = os.path.join(output_path, f"cavity_{index}.pdb")
+                with open(output_file, 'w') as out_file:
+                    out_file.writelines(close_residues)
+
     def process_directory(self):
         for root, _, files in os.walk(self.input_path):
             for file in files:

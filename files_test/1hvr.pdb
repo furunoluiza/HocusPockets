@@ -1,15 +1,15 @@
-HEADER    HYDROLASE/HYDROLASE INHIBITOR           14-FEB-94   1HVR              
-TITLE     RATIONAL DESIGN OF POTENT, BIOAVAILABLE, NONPEPTIDE CYCLIC UREAS AS   
-TITLE    2 HIV PROTEASE INHIBITORS                                              
-COMPND    MOL_ID: 1;                                                            
-COMPND   2 MOLECULE: HIV-1 PROTEASE;                                            
-COMPND   3 CHAIN: A, B;                                                         
-COMPND   4 ENGINEERED: YES                                                      
-SOURCE    MOL_ID: 1;                                                            
-SOURCE   2 ORGANISM_SCIENTIFIC: HUMAN IMMUNODEFICIENCY VIRUS 1;                 
-SOURCE   3 ORGANISM_TAXID: 11676;                                               
-SOURCE   4 EXPRESSION_SYSTEM: ESCHERICHIA COLI;                                 
-SOURCE   5 EXPRESSION_SYSTEM_TAXID: 562                                         
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    1hvr.pdb                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: lfuruno- <lfuruno-@student.42.rio>         +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 0001/01/01 00:00:00 by                   #+#    #+#              #
+#    Updated: 2024/10/28 17:14:19 by lfuruno-         ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 KEYWDS    HYDROLASE, ACID PROTEINASE, HYDROLASE-HYDROLASE INHIBITOR COMPLEX     
 EXPDTA    X-RAY DIFFRACTION                                                     
 AUTHOR    C.-H.CHANG                                                            

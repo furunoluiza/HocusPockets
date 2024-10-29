@@ -66,7 +66,7 @@ def args_parse():
     parser.add_argument(
         '--fpocket-score',
         type=float,
-        default=0.5,
+        default=0.0,
         metavar="",
         help='Minimum druggability score for Fpocket (default: 0.5). Only pockets with a score greater than this will be considered.'
     )
