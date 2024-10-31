@@ -27,7 +27,7 @@ description = tw.dedent("""\033[1;95m
         |  _  | (_) | (__| |_| \__ \ |  __/ (_) | (__|   <| |_| \__ \\
         |_| |_|\___/ \___|\__,_|___/ |_|   \___/ \___|_|\_\\__,__|___/
                         
-      Holistic Optimization of Computational Utility for Scoring Pockets
+              Holistic Computational Utility for Scoring Pockets
              
         \033[1;0m""")
 
