@@ -6,7 +6,7 @@ import shutil
 import os
 import pandas as pd
 import numpy as np
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull #volume
 from Initialize import *
 
 # Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
@@ -53,11 +53,9 @@ class CavityFinder:
     def compare_residues(self, residues_a, residues_b):
         """
         Compares two sets of residues to determine their similarity.
-        
         Input:
         residues_a [set] - A set of residue identifiers from the first cavity.
         residues_b [set] - A set of residue identifiers from the second cavity.
-        
         Return:
             [bool] True if the similarity between the two sets of residues 
                 is greater than or equal to 0.6, otherwise False.
@@ -73,7 +71,7 @@ class CavityFinder:
         Calculates the polarity score based on the presence of polar residues.
         Input:
         residues [set] - A set of residue identifiers associated with the cavity.
-        Output:
+        Return:
         [float] The proportion of polar residues relative to the total number of residues.
         """
         if len(residues) == 0:
@@ -88,7 +86,7 @@ class CavityFinder:
         Input:
         residues [set]   - A set of residue identifiers associated with the cavity.
         volume   [float] - Volume of the cavity.
-        Output:
+        Return:
         [float] The density of hydrophobic residues relative to the volume of the cavity.
         """
         if len(residues) == 0 or volume == 0:
@@ -103,7 +101,7 @@ class CavityFinder:
         Calculates the volume of a cavity defined by atomic coordinates from PDB lines.
         Input:
         lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
-        Output:
+        Return:
         [float] The calculated volume of the cavity based on its atomic coordinates,
                 or 0 if insufficient points are provided or if an error occurs.
         """
@@ -127,11 +125,9 @@ class CavityFinder:
     def score_cavity(self, pocket_file, residues):
         """
         Calculates a score for a cavity based on volume, hydrophobicity, and frequency of occurrence.
-
         Parameters:
         pocket_file [str] - Path to the file containing cavity information in PDB format.
         residues    [set] - A set of residues associated with the cavity.
-        
         Return:
         [float] The calculated score for the cavity, which combines volume, hydrophobicity score, 
             and occurrence frequency.
@@ -196,7 +192,7 @@ class CavityFinder:
                     program_cavities[program].append((pocket_file, residues))
                     cav_key = pocket_file
                     self.cavity_count[cav_key] = self.cavity_count.get(cav_key, 0) + 1
-        for prog_a, cavities_a in program_cavities.items():
+        for prog_a, cavities_a in program_cavities.items(): #ele ta indo e voltando
             for prog_b, cavities_b in program_cavities.items():
                 if prog_a == prog_b:
                     continue
@@ -234,7 +230,7 @@ class CavityFinder:
         Finds cavities when the input is a single file.
         Input:
         protein_output_dir [str] - Directory where the protein output will be saved.
-        Output:
+        Return:
             Nothing.
         """
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
@@ -250,7 +246,7 @@ class CavityFinder:
         Main method to find cavities.
         Input:
             Nothing.
-        Output:
+        Return:
             Nothing.
         """
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
@@ -265,6 +261,15 @@ class ConCavityFinder(CavityFinder):
     def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
         super().__init__(input_path, output_path, verbose_handler, fpocket_score)
     
+    def calculate_geometric_center(self, lines):
+            coordinates = []
+            for line in lines:
+                x = float(line[30:38].strip())
+                y = float(line[38:46].strip())
+                z = float(line[46:54].strip())
+                coordinates.append([x, y, z])
+            return np.mean(coordinates, axis=0) if coordinates else None
+
     def process_cavities(self, pockets_info, residue_info, output_path):
         cavities = {}
         current_cavity = []
@@ -295,7 +300,7 @@ class ConCavityFinder(CavityFinder):
                     distance = np.linalg.norm(np.array([x, y, z]) - geom_center)
 
                     # Seleciona resíduos com base na distância e volume
-                    distance_limit = max(cavity_volume ** (1/3), 8.0) #isso precisa ser ajustado?
+                    distance_limit = max(cavity_volume ** (1/3), 8.0) #isso precisa ser ajustado? #tamanho dos aas
                     if distance < distance_limit: 
                         close_residues.append(res_line)
 
@@ -344,15 +349,6 @@ class ConCavityFinder(CavityFinder):
             assert return_code == 0, clrs['r'] + f'Problem running ConCavity with {method} method' + clrs['n']
             self.access_concavity(input_file, method_output_dir, method)
             self.cleanup_files(input_file, method)
-    
-    def calculate_geometric_center(self, lines):
-            coordinates = []
-            for line in lines:
-                x = float(line[30:38].strip())
-                y = float(line[38:46].strip())
-                z = float(line[46:54].strip())
-                coordinates.append([x, y, z])
-            return np.mean(coordinates, axis=0) if coordinates else None
 
     def process_directory(self):
         for root, _, files in os.walk(self.input_path):
@@ -366,9 +362,26 @@ class ConCavityFinder(CavityFinder):
 
 class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
+       """
+        Initializes the FpocketFinder object.
+        Input:
+        input_path      [str]                - Path to the input file or directory containing the protein structure.
+        output_path     [str]                - Path where the Fpocket output will be saved.
+        verbose_handler [bool]               - Object to handle verbose output.
+        fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities based on the druggability score.
+        Return:
+            Nothing.
+        """
        super().__init__(input_path, output_path, verbose_handler, fpocket_score)
 
     def run_fpocket(self, input_file):
+        """
+        Executes the Fpocket program on a given protein file for cavity detection.
+        Input:
+            input_file [str] - Path to the protein file on which Fpocket will be run.
+        Return:
+            Nothing.
+        """
         with open(os.devnull, 'w') as devnull:
             return_code = subprocess.call(['fpocket', '-f' + input_file], stdout=devnull, stderr=devnull)
         assert return_code == 0, clrs['r'] + f'Problem running fpocket tool' + clrs['n']
@@ -441,19 +454,30 @@ class FpocketFinder(CavityFinder):
         return updated_pockets_paths
 
     def process_file(self):
+        """
+        Processes a single protein file to extract cavities using Fpocket.
+        Input:
+            Nothing.
+        Return:
+            Nothing.
+        """
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
         protein_output_dir = os.path.join(self.output_path, protein_name)
         os.makedirs(protein_output_dir, exist_ok=True)
         self.run_fpocket(self.input_path)
         pockets_info = self.access_pockets(self.input_path)
         update_pockets_paths = self.copy_and_cleanup(pockets_info, self.input_path)
-        df = self.pockets_df(update_pockets_paths, os.path.basename(self.input_path))
-        output_file = os.path.join(self.output_path, 'pockets_fpocket.csv')
-        df.to_csv(output_file, sep='\t', index=False)
     
     def process_directory(self):
+        """
+        Processes all protein files in a directory for cavity detection using Fpocket.
+        Input:
+            Nothing.
+        Return:
+            [str] Paths to each protein's output directory.
+        """
         protein_outputs = []
-        for root, _, files in os.walk(self.input_path):
+        for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
             for file in files:
                 if file.endswith(('.pdb', '.cif')):
                     input_file = os.path.join(root, file)
