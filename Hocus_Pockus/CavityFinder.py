@@ -7,6 +7,8 @@ import os
 import pandas as pd
 import numpy as np
 from scipy.spatial import ConvexHull #volume
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from Initialize import *
 
 # Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
@@ -20,6 +22,8 @@ class CavityFinder:
         output_path     [str]                - Path where the output will be saved.
         verbose_handler [bool]               - Object to handle verbose output.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
+        Hydrophobicity taken from: Monera & al. Journal of Protein Science 1, 319-329 (1995)
+        Polarity taken from: http://www.info.univ-angers.fr/~gh/Idas/proprietes.htm
         Return:
             Nothing.
         """
@@ -28,8 +32,18 @@ class CavityFinder:
         self.verbose_handler = verbose_handler
         self.fpocket_score = fpocket_score
         self.cavity_count = {}
-        self.hydrophobic_residues = {'ALA', 'ILE', 'LEU', 'MET', 'PHE', 'TRP', 'VAL', 'PRO', 'CYS'} #verificar!
-        self.polar_residues = {'SER', 'THR', 'CYS', 'ASN', 'GLN', 'ARG', 'LYS', 'HIS', 'ASP', 'GLU'}
+        self.hydrophobic_residues = {
+            "ALA": 41.0, "ARG": -14.0, "ASN": -28.0, "ASP": -55.0, "CYS": 49.0,
+            "GLN": -10.0, "GLU": -31.0, "GLY": 0.0, "HIS": 8.0, "ILE": 99.0,
+            "LEU": 97.0, "LYS": -23.0, "MET": 74.0, "PHE": 100.0, "PRO": -46.0,
+            "SER": -5.0, "THR": 13.0, "TRP": 97.0, "TYR": 63.0, "VAL": 76.0
+            }
+        self.polar_residues = {
+            "ALA": 0, "ARG": 1, "ASN": 1, "ASP": 1, "CYS": 0,
+            "GLN": 1, "GLU": 1, "GLY": 0, "HIS": 1, "ILE": 0,
+            "LEU": 0, "LYS": 1, "MET": 0, "PHE": 0, "PRO": 0,
+            "SER": 1, "THR": 1, "TRP": 1, "TYR": 1, "VAL": 0
+        }
     
     @staticmethod
     def extract_residues_from_pdb(cavity_file):
@@ -64,9 +78,9 @@ class CavityFinder:
             return False
         intersection = residues_a.intersection(residues_b) # Calculate the intersection of the two sets of residues.
         similarity = len(intersection) / max(len(residues_a), len(residues_b)) # Calculate the similarity as the size of the intersection divided by the size of the larger set.
-        return similarity >= 0.8 #Ajustar?
+        return similarity >= 0.8 #Ajustar? #salvar a equivalência para determinar esse valor
 
-    def calculate_polarity(self, residues):
+    def calculate_polarity(self, residues, area): #verificar!
         """
         Calculates the polarity score based on the presence of polar residues.
         Input:
@@ -74,26 +88,112 @@ class CavityFinder:
         Return:
         [float] The proportion of polar residues relative to the total number of residues.
         """
-        if len(residues) == 0:
+        if len(residues) == 0 or area == 0:
             return 0
-        polar_count = sum(1 for res in residues if res[:3] in self.polar_residues)
-        return polar_count / len(residues)
+        polarity_sum = 0
+        for res in residues:
+            # Assume that 'res' is the amino acid code
+            polarity_value = self.polar_residues.get(res[:3], 0)  # Adjust this to fetch polarity from the property table
+            if polarity_value != -1:  # Only add if a valid polarity value is found
+                polarity_sum += polarity_value
+        # Normalizes by both the number of residues and the surface area 
+        #Essa forma de normalização está correta?
+        average_polarity = polarity_sum / len(residues) if len(residues) > 0 else 0
+        polarity_density = average_polarity / area
+        return polarity_density
 
-    def calculate_hydrophobicity(self, residues, volume):
+    def calculate_hydrophobicity(self, residues, area): #verificar!
         """
         Calculates the hydrophobicity score based on the density of hydrophobic residues.
         Input:
         residues [set]   - A set of residue identifiers associated with the cavity.
-        volume   [float] - Volume of the cavity.
+        area   [float]   - Surface area of the cavity.
         Return:
         [float] The density of hydrophobic residues relative to the volume of the cavity.
         """
-        if len(residues) == 0 or volume == 0:
-            #print("Warning: No residues or zero volume provided for hydrophobicity calculation.")
+        if len(residues) == 0 or area == 0:
             return 0
-        hydrophobic_count = sum(1 for res in residues if res[:3] in self.hydrophobic_residues)
-        hydrophobicity_density = hydrophobic_count / len(residues) if len(residues) > 0 else 0
-        return hydrophobicity_density * volume
+        hydrophobicity_sum = 0
+        for res in residues:
+            hydrophobicity_value = self.hydrophobic_residues.get(res) 
+            if hydrophobicity_value:
+                hydrophobicity_sum += hydrophobicity_value
+        #Essa forma de normalização está correta?
+        hydrophobicity_density = hydrophobicity_sum / len(residues) if len(residues) > 0 else 0 #média ponderada dos resíduos em relação a hidrofobicidade
+        return hydrophobicity_density * area
+
+    def calculate_cavity_area(self, lines):
+        """
+        Calculates the surface area of a cavity defined by atomic coordinates from PDB lines.
+        Input:
+        lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
+        Return:
+        [float] The calculated surface area of the cavity based on its atomic coordinates,
+                or 0 if insufficient points are provided or if an error occurs.
+        """
+        coordinates = []
+        for line in lines:
+            if line.startswith("ATOM") or line.startswith("HETATM"):  # Include heteroatoms as well
+                try:
+                    # Extract atomic coordinates
+                    x = float(line[30:38].strip())
+                    y = float(line[38:46].strip())
+                    z = float(line[46:54].strip())
+                    coordinates.append([x, y, z])
+                except (ValueError, IndexError) as e:
+                    print(f"Error processing line: {line.strip()} - {e}")
+        
+        if len(coordinates) < 4:  # Ideally, need at least 4 points to form a 3D volume
+            print("Insufficient number of points to calculate the surface area.")
+            return 0
+        try:
+            # Create a convex hull from the list of coordinates
+            # The convex hull is the smallest convex shape that encloses all the points
+            hull = ConvexHull(coordinates)
+            area = 0
+            # Iterate over the faces (simplices) of the hull
+            # Each simplex represents a triangular face of the convex hull
+            for simplex in hull.simplices:
+                # Get the three points (vertices) of the triangle
+                p1, p2, p3 = coordinates[simplex[0]], coordinates[simplex[1]], coordinates[simplex[2]]
+                # Compute the area of the triangle defined by the three points (p1, p2, p3)
+                # This is done by calculating the cross product of vectors v1 and v2
+                v1 = np.array(p2) - np.array(p1) # Vector from p1 to p2
+                v2 = np.array(p3) - np.array(p1) # Vector from p1 to p3
+                cross_product = np.cross(v1, v2) # Cross product of v1 and v2
+                # The norm (magnitude) of the cross product vector represents the area of the parallelogram 
+                # formed by the two vectors. Since the triangle is half of the parallelogram, 
+                # we divide by 2 to get the area of the triangle.
+                area += np.linalg.norm(cross_product) / 2.0 
+
+            return area  # Return the total surface area of the convex hull
+        except Exception as e:
+            print(f"Error creating convex hull: {e}")
+            return 0
+
+    def plot_cavity(self, coordinates):
+        # Criação do Convex Hull
+        hull = ConvexHull(coordinates)
+        
+        # Plotagem em 3D
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+        
+        # Plota os pontos atômicos
+        coordinates = np.array(coordinates)
+        ax.scatter(coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], color="blue", alpha=0.5, label="Átomos")
+        
+        # Plota as faces do Convex Hull
+        for simplex in hull.simplices:
+            simplex = np.append(simplex, simplex[0])  # Fecha o loop para o desenho
+            ax.plot(coordinates[simplex, 0], coordinates[simplex, 1], coordinates[simplex, 2], "k-")
+        
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        plt.title("Visualização da Cavidade Convexa")
+        plt.legend()
+        plt.show()
 
     def calculate_cavity_volume(self, lines):
         """
@@ -106,7 +206,7 @@ class CavityFinder:
         """
         coordinates = []
         for line in lines:
-            if line.startswith("ATOM"):  # Check if the line starts with "ATOM" to identify atomic entries
+            if line.startswith("ATOM") or line.startswith("HETATM"):
                 try:
                     x = float(line[30:38].strip())
                     y = float(line[38:46].strip())
@@ -114,11 +214,19 @@ class CavityFinder:
                     coordinates.append([x, y, z])
                 except (ValueError, IndexError) as e:
                     print(f"Error processing line: {line.strip()} - {e}")
+        print(f"Number of coordinates for volume calculation: {len(coordinates)}")
         if len(coordinates) < 3:  # Check if there are at least three coordinates to define a volume
             #print("Insufficient number of points to calculate the volume.")
             return 0
-        hull = ConvexHull(coordinates) # Create a convex hull from the list of coordinates to define the cavity shape.
-        return hull.volume if hull else 0 # Return the volume of the convex hull; if the hull could not be created, return 0.
+        try:
+            # Create a convex hull from the list of coordinates
+            # The convex hull is the smallest convex shape that encloses all the points
+            hull = ConvexHull(coordinates)
+            #self.plot_cavity(coordinates) #Plotar cavidades
+            return hull.volume  # Return the volume of the convex hull
+        except Exception as e:
+            print(f"Error creating convex hull: {e}")
+            return 0
  
     
     def score_cavity(self, pocket_file, residues):
@@ -133,14 +241,16 @@ class CavityFinder:
         """
         with open(pocket_file, 'r') as f:
             lines = f.readlines()
-        volume = self.calculate_cavity_volume(lines) #Faz sentido calcular o volume com os residuos?
-        hydrophobicity_score = self.calculate_hydrophobicity(residues, volume)
-        frequency = self.cavity_count.get(pocket_file, 0)
-        polarity_score = self.calculate_polarity(residues)
-        score = (volume * 0.3) + (hydrophobicity_score * 40) + (frequency * 5) + (polarity_score * 10)
-        return score
+        volume = self.calculate_cavity_volume(lines) #usar o volume do grid msm?
+        surface_area = self.calculate_cavity_area(lines) #usar a area do grid?
+        hydrophobicity_score = self.calculate_hydrophobicity(residues, surface_area) #ta tudo zerado 
+        polarity_score = self.calculate_polarity(residues, surface_area) 
+        score = (volume * 0.3) + (hydrophobicity_score * 20) + (polarity_score * 10)
+        #tamanho da seq para normalização
+        #peso igual para todos
+        return score, volume, surface_area, hydrophobicity_score, polarity_score
     
-    def save_cavity_scores(self, cavity_path, program_cavities):
+    def save_cavity_scores(self, cavity_path, program_cavities, cavity_ids):
         """
         Calculates and saves cavity scores for different programs into a text file.
         Input:
@@ -151,22 +261,30 @@ class CavityFinder:
         """
         scores = []
         for program, cavities in program_cavities.items():
-            for pocket_file, residues in cavities:
-                pocket_file_path = os.path.join(cavity_path, program, pocket_file)
-                score = self.score_cavity(pocket_file_path, residues)
+            for cavity in cavities:
+                pocket_file_path = cavity['path']
+                pocket_file = os.path.basename(pocket_file_path)
+                cavity_id = cavity_ids.get(pocket_file_path, None)
+                score, volume, surface_area, hydrophobicity_score, polarity_score = self.score_cavity(pocket_file_path, cavity['residues'])
                 scores.append({
                     'program': program,
                     'pocket_file': pocket_file,
                     'path': pocket_file_path,
-                    'score': score
+                    'score': score,
+                    'cavity_id': cavity_id,
+                    'volume': volume,
+                    'surface_area': surface_area,
+                    'hydrophobicity_score': hydrophobicity_score,
+                    'polarity_score': polarity_score
+                    #deixar o score normalizado e não normalizado
                 })
         protein_dir = os.path.join(self.output_path, os.path.basename(cavity_path))
         os.makedirs(protein_dir, exist_ok=True)
         output_file = os.path.join(protein_dir, "cavity_scores.txt")
         with open(output_file, 'w') as f:
-            f.write("Program\tPocket\tFile Path\tScore\n")
+            f.write("ID\tProgram\tPocket\tFile_Path\tVolume\tSurface_Area\tHydrophobic_Score\tPolarity_Score\tScore\n")
             for entry in sorted(scores, key=lambda item: item['score'], reverse=True):
-                f.write(f"{entry['program']}\t{entry['pocket_file']}\t{entry['path']}\t{entry['score']:.2f}\n")
+                f.write(f"{entry['cavity_id']}\t{entry['program']}\t{entry['pocket_file']}\t{entry['path']}\t{entry['volume']}\t{entry['surface_area']}\t{entry['hydrophobicity_score']}\t{entry['polarity_score']}\t{entry['score']:.2f}\n")
 
     def compare_cavities(self, cavity_path):
         """
@@ -176,6 +294,9 @@ class CavityFinder:
         Return:
             Nothing.
         """
+        cavity_ids = {}
+        current_id = 1
+        comparisons = []
         cavity_directories = ['fpocket', 'ligsite', 'pocketfinder', 'surfnet'] # List of directories corresponding to different cavity-detection programs
         program_cavities = {program: [] for program in cavity_directories}
         for program in cavity_directories: # Loop through each program directory to gather cavity information
@@ -184,21 +305,25 @@ class CavityFinder:
                 if pocket_file.endswith('.pdb'):
                     pocket_path = os.path.join(program_dir, pocket_file)
                     residues = self.extract_residues_from_pdb(pocket_path) # Extract residues from the PDB file
-                    program_cavities[program].append((pocket_path, residues)) # Store the file path and its residues
-                    self.cavity_count[pocket_path] = self.cavity_count.get(pocket_path, 0) + 1
+                    cavity_id = cavity_ids.get(pocket_path)
+                    if cavity_id is None:  # If not, assign a new ID
+                        cavity_id = current_id
+                        cavity_ids[pocket_path] = current_id
+                        current_id += 1
+                    program_cavities[program].append({'path': pocket_path, 'residues': residues, 'id': cavity_id}) # Store the file path and its residues
         # Compare cavities from different programs
         for i, prog_a in enumerate(cavity_directories):  # Outer loop for the first program, with index i
             cavities_a = program_cavities[prog_a]
             for prog_b in cavity_directories[i + 1:]:  # Inner loop for the second program, starting from the next program
                 cavities_b = program_cavities[prog_b]
-                for pocket_a, residues_a in cavities_a:  # Loop through cavities of the first program
-                    for pocket_b, residues_b in cavities_b:  # Loop through cavities of the second program
-                        if self.compare_residues(residues_a, residues_b):  # Compare the residues from the two cavity files
-                            self.cavity_count[pocket_a] = self.cavity_count.get(pocket_a, 0) + 1
-                            self.cavity_count[pocket_b] = self.cavity_count.get(pocket_b, 0) + 1
-                            cav_key = f"{pocket_a}-{pocket_b}"  # Create a key for the cavity pair
-                            print(f"Cavities {os.path.basename(pocket_a)} (from {prog_a}) and {os.path.basename(pocket_b)} (from {prog_b}) are considered equal.")
-        self.save_cavity_scores(cavity_path, program_cavities)
+                for pocket_a in cavities_a:  # Loop through cavities of the first program
+                    for pocket_b in cavities_b:  # Loop through cavities of the second program
+                        if self.compare_residues(pocket_a['residues'], pocket_b['residues']):  # Compare the residues from the two cavity files
+                            if pocket_a['id'] != pocket_b['id']:
+                                print(f"Cavities {os.path.basename(pocket_a['path'])} (from {prog_a}) and {os.path.basename(pocket_b['path'])} (from {prog_b}) are considered equal.")
+                            pocket_b['id'] = pocket_a['id']  # Ensure the second cavity has the same ID as the first one
+                            cavity_ids[pocket_b['path']] = pocket_a['id']  # Update the cavity ID dictionary
+        self.save_cavity_scores(cavity_path, program_cavities, cavity_ids)
     
     def find_cavities_in_directory(self):
         """
@@ -307,6 +432,7 @@ class ConCavityFinder(CavityFinder):
         for index, coordinates in cavities.items():
             geom_center = self.calculate_geometric_center(coordinates) # Calculate the geometric center of the cavity
             cavity_volume = self.calculate_cavity_volume(coordinates) # Calculate the volume of the cavity
+            print(cavity_volume) 
             if geom_center is not None:
                 close_residues = [] # List to hold residues close to the cavity
                 for res_line in residue_coordinates:
@@ -315,7 +441,7 @@ class ConCavityFinder(CavityFinder):
                     z = float(res_line[46:54].strip())
                     distance = np.linalg.norm(np.array([x, y, z]) - geom_center) # Calculate the distance from the residue to the cavity's geometric center
                     # Define the distance limit based on the cavity's volume
-                    distance_limit = max(cavity_volume ** (1/3), 8.0) #isso precisa ser ajustado? #tamanho dos aas
+                    distance_limit = max(cavity_volume ** (1/3), cavity_volume ** (1/3) + 3) #isso precisa ser ajustado?
                     if distance < distance_limit: 
                         close_residues.append(res_line)
                 output_file = os.path.join(output_path, f"cavity_{index}.pdb") # Create an output file to save residues close to the current cavity
