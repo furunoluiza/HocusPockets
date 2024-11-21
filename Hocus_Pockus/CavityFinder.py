@@ -78,7 +78,7 @@ class CavityFinder:
             return False
         intersection = residues_a.intersection(residues_b) # Calculate the intersection of the two sets of residues.
         similarity = len(intersection) / max(len(residues_a), len(residues_b)) # Calculate the similarity as the size of the intersection divided by the size of the larger set.
-        return similarity >= 0.8 #Ajustar? #salvar a equivalência para determinar esse valor
+        return similarity >= 0.6 #Ajustar? #salvar a equivalência para determinar esse valor
 
     def calculate_polarity(self, residues, area): #verificar!
         """
@@ -99,10 +99,9 @@ class CavityFinder:
         # Normalizes by both the number of residues and the surface area 
         #Essa forma de normalização está correta?
         average_polarity = polarity_sum / len(residues) if len(residues) > 0 else 0
-        polarity_density = average_polarity / area
-        return polarity_density
+        return average_polarity
 
-    def calculate_hydrophobicity(self, residues, area): #verificar!
+    def calculate_hydrophobicity(self, residues): #verificar!
         """
         Calculates the hydrophobicity score based on the density of hydrophobic residues.
         Input:
@@ -111,16 +110,17 @@ class CavityFinder:
         Return:
         [float] The density of hydrophobic residues relative to the volume of the cavity.
         """
-        if len(residues) == 0 or area == 0:
+        if len(residues) == 0:
             return 0
         hydrophobicity_sum = 0
         for res in residues:
-            hydrophobicity_value = self.hydrophobic_residues.get(res) 
-            if hydrophobicity_value:
+            res_code = res[:3]
+            hydrophobicity_value = self.hydrophobic_residues.get(res_code)
+            if hydrophobicity_value is not None:
                 hydrophobicity_sum += hydrophobicity_value
         #Essa forma de normalização está correta?
         hydrophobicity_density = hydrophobicity_sum / len(residues) if len(residues) > 0 else 0 #média ponderada dos resíduos em relação a hidrofobicidade
-        return hydrophobicity_density * area
+        return hydrophobicity_density
 
     def calculate_cavity_area(self, lines):
         """
@@ -171,31 +171,27 @@ class CavityFinder:
             print(f"Error creating convex hull: {e}")
             return 0
 
-    def plot_cavity(self, coordinates):
+    def plot_cavity(self, coordinates, pocket_file):
         # Criação do Convex Hull
         hull = ConvexHull(coordinates)
-        
         # Plotagem em 3D
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
-        
         # Plota os pontos atômicos
         coordinates = np.array(coordinates)
         ax.scatter(coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], color="blue", alpha=0.5, label="Átomos")
-        
         # Plota as faces do Convex Hull
         for simplex in hull.simplices:
             simplex = np.append(simplex, simplex[0])  # Fecha o loop para o desenho
             ax.plot(coordinates[simplex, 0], coordinates[simplex, 1], coordinates[simplex, 2], "k-")
-        
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
-        plt.title("Visualização da Cavidade Convexa")
+        plt.title(f"Visualização da Cavidade Convexa - {pocket_file}")
         plt.legend()
         plt.show()
 
-    def calculate_cavity_volume(self, lines):
+    def calculate_cavity_volume(self, lines, pocket_file):
         """
         Calculates the volume of a cavity defined by atomic coordinates from PDB lines.
         Input:
@@ -222,7 +218,7 @@ class CavityFinder:
             # Create a convex hull from the list of coordinates
             # The convex hull is the smallest convex shape that encloses all the points
             hull = ConvexHull(coordinates)
-            #self.plot_cavity(coordinates) #Plotar cavidades
+            self.plot_cavity(coordinates, pocket_file) #Plotar cavidades
             return hull.volume  # Return the volume of the convex hull
         except Exception as e:
             print(f"Error creating convex hull: {e}")
@@ -241,9 +237,9 @@ class CavityFinder:
         """
         with open(pocket_file, 'r') as f:
             lines = f.readlines()
-        volume = self.calculate_cavity_volume(lines) #usar o volume do grid msm?
+        volume = self.calculate_cavity_volume(lines, pocket_file) #usar o volume do grid msm?
         surface_area = self.calculate_cavity_area(lines) #usar a area do grid?
-        hydrophobicity_score = self.calculate_hydrophobicity(residues, surface_area) #ta tudo zerado 
+        hydrophobicity_score = self.calculate_hydrophobicity(residues) #ta tudo zerado 
         polarity_score = self.calculate_polarity(residues, surface_area) 
         score = (volume * 0.3) + (hydrophobicity_score * 20) + (polarity_score * 10)
         #tamanho da seq para normalização
@@ -431,7 +427,7 @@ class ConCavityFinder(CavityFinder):
         # Process each cavity and find residues nearby
         for index, coordinates in cavities.items():
             geom_center = self.calculate_geometric_center(coordinates) # Calculate the geometric center of the cavity
-            cavity_volume = self.calculate_cavity_volume(coordinates) # Calculate the volume of the cavity
+            cavity_volume = self.calculate_cavity_volume(coordinates, pockets_info) # Calculate the volume of the cavity
             print(cavity_volume) 
             if geom_center is not None:
                 close_residues = [] # List to hold residues close to the cavity
@@ -441,7 +437,7 @@ class ConCavityFinder(CavityFinder):
                     z = float(res_line[46:54].strip())
                     distance = np.linalg.norm(np.array([x, y, z]) - geom_center) # Calculate the distance from the residue to the cavity's geometric center
                     # Define the distance limit based on the cavity's volume
-                    distance_limit = max(cavity_volume ** (1/3), cavity_volume ** (1/3) + 3) #isso precisa ser ajustado?
+                    distance_limit = max(cavity_volume ** (1/3), cavity_volume ** (1/3) + 3) #isso precisa ser ajustado? #raio do volume
                     if distance < distance_limit: 
                         close_residues.append(res_line)
                 output_file = os.path.join(output_path, f"cavity_{index}.pdb") # Create an output file to save residues close to the current cavity
