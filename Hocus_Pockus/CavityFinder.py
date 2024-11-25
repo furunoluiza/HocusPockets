@@ -32,19 +32,6 @@ class CavityFinder:
         self.output_path = output_path
         self.verbose_handler = verbose_handler
         self.fpocket_score = fpocket_score
-        self.cavity_count = {}
-        self.hydrophobic_residues = {
-            "ALA": 41.0, "ARG": -14.0, "ASN": -28.0, "ASP": -55.0, "CYS": 49.0,
-            "GLN": -10.0, "GLU": -31.0, "GLY": 0.0, "HIS": 8.0, "ILE": 99.0,
-            "LEU": 97.0, "LYS": -23.0, "MET": 74.0, "PHE": 100.0, "PRO": -46.0,
-            "SER": -5.0, "THR": 13.0, "TRP": 97.0, "TYR": 63.0, "VAL": 76.0
-            }
-        self.polar_residues = {
-            "ALA": 0, "ARG": 1, "ASN": 1, "ASP": 1, "CYS": 0,
-            "GLN": 1, "GLU": 1, "GLY": 0, "HIS": 1, "ILE": 0,
-            "LEU": 0, "LYS": 1, "MET": 0, "PHE": 0, "PRO": 0,
-            "SER": 1, "THR": 1, "TRP": 1, "TYR": 1, "VAL": 0
-        }
     
     @staticmethod
     def extract_residues_from_pdb(cavity_file):
@@ -80,97 +67,6 @@ class CavityFinder:
         intersection = residues_a.intersection(residues_b) # Calculate the intersection of the two sets of residues.
         similarity = len(intersection) / max(len(residues_a), len(residues_b)) # Calculate the similarity as the size of the intersection divided by the size of the larger set.
         return similarity >= 0.6 #Ajustar? #salvar a equivalência para determinar esse valor
-
-    def calculate_polarity(self, residues, area): #verificar!
-        """
-        Calculates the polarity score based on the presence of polar residues.
-        Input:
-        residues [set] - A set of residue identifiers associated with the cavity.
-        Return:
-        [float] The proportion of polar residues relative to the total number of residues.
-        """
-        if len(residues) == 0 or area == 0:
-            return 0
-        polarity_sum = 0
-        for res in residues:
-            # Assume that 'res' is the amino acid code
-            polarity_value = self.polar_residues.get(res[:3], 0)  # Adjust this to fetch polarity from the property table
-            if polarity_value != -1:  # Only add if a valid polarity value is found
-                polarity_sum += polarity_value
-        # Normalizes by both the number of residues and the surface area 
-        #Essa forma de normalização está correta?
-        average_polarity = polarity_sum / len(residues) if len(residues) > 0 else 0
-        return average_polarity
-
-    def calculate_hydrophobicity(self, residues): #verificar!
-        """
-        Calculates the hydrophobicity score based on the density of hydrophobic residues.
-        Input:
-        residues [set]   - A set of residue identifiers associated with the cavity.
-        area   [float]   - Surface area of the cavity.
-        Return:
-        [float] The density of hydrophobic residues relative to the volume of the cavity.
-        """
-        if len(residues) == 0:
-            return 0
-        hydrophobicity_sum = 0
-        for res in residues:
-            res_code = res[:3]
-            hydrophobicity_value = self.hydrophobic_residues.get(res_code)
-            if hydrophobicity_value is not None:
-                hydrophobicity_sum += hydrophobicity_value
-        #Essa forma de normalização está correta?
-        hydrophobicity_density = hydrophobicity_sum / len(residues) if len(residues) > 0 else 0 #média ponderada dos resíduos em relação a hidrofobicidade
-        return hydrophobicity_density
-
-    def calculate_cavity_area(self, lines):
-        """
-        Calculates the surface area of a cavity defined by atomic coordinates from PDB lines.
-        Input:
-        lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
-        Return:
-        [float] The calculated surface area of the cavity based on its atomic coordinates,
-                or 0 if insufficient points are provided or if an error occurs.
-        """
-        coordinates = []
-        for line in lines:
-            if line.startswith("ATOM") or line.startswith("HETATM"):  # Include heteroatoms as well
-                try:
-                    # Extract atomic coordinates
-                    x = float(line[30:38].strip())
-                    y = float(line[38:46].strip())
-                    z = float(line[46:54].strip())
-                    coordinates.append([x, y, z])
-                except (ValueError, IndexError) as e:
-                    print(f"Error processing line: {line.strip()} - {e}")
-        
-        if len(coordinates) < 4:  # Ideally, need at least 4 points to form a 3D volume
-            print("Insufficient number of points to calculate the surface area.")
-            return 0
-        try:
-            # Create a convex hull from the list of coordinates
-            # The convex hull is the smallest convex shape that encloses all the points
-            hull = ConvexHull(coordinates)
-            area = 0
-            # Iterate over the faces (simplices) of the hull
-            # Each simplex represents a triangular face of the convex hull
-            for simplex in hull.simplices:
-                # Get the three points (vertices) of the triangle
-                p1, p2, p3 = coordinates[simplex[0]], coordinates[simplex[1]], coordinates[simplex[2]]
-                # Compute the area of the triangle defined by the three points (p1, p2, p3)
-                # This is done by calculating the cross product of vectors v1 and v2
-                v1 = np.array(p2) - np.array(p1) # Vector from p1 to p2
-                v2 = np.array(p3) - np.array(p1) # Vector from p1 to p3
-                cross_product = np.cross(v1, v2) # Cross product of v1 and v2
-                # The norm (magnitude) of the cross product vector represents the area of the parallelogram 
-                # formed by the two vectors. Since the triangle is half of the parallelogram, 
-                # we divide by 2 to get the area of the triangle.
-                area += np.linalg.norm(cross_product) / 2.0 
-
-            return area  # Return the total surface area of the convex hull
-        except Exception as e:
-            print(f"Error creating convex hull: {e}")
-            return 0
 
     def plot_hull_and_residues(self, hull_points, residue_points, cavity_index, method):
         """
@@ -258,41 +154,21 @@ class CavityFinder:
         except Exception as e:
             print(f"Error creating convex hull: {e}")
             return 0
- 
+        
+    def calculate_enclosure(self, grid_file, residue_file):
+        return 0
     
-    def score_cavity(self, volume, residues, area):
-        """
-        Calculates the final score for a cavity based on volume, hydrophobicity, and polarity.
+    def calculate_hydrophilicity(self, grid_file, residue_file):
+        hydrophilicity_scores = []
+        return 0
 
-        Parameters:
-            volume [float]                - Volume of the cavity (calculated using grid file).
-            hydrophobicity_score [float]  - Hydrophobicity score based on cavity residues.
-            polarity_score [float]        - Polarity score based on cavity residues.
 
-        Returns:
-            [float] - The calculated score combining the three parameters.
-        """
-        # Define weights for each parameter (adjust as needed)
-        weights = {
-            'volume': 0.33,
-            'hydrophobicity': 0.33,
-            'polarity': 0.33
-        }
+    def score_cavity(self, volume, grid_file, residue_file):
+        enclosure = self.calculate_enclosure(grid_file, residue_file)
+        hydrophilicity = self.calculate_hydrophilicity(grid_file, residue_file)
 
-        # Normalize volume (optional, if needed)
-        max_volume = 1000.0  # Define a max volume for normalization
-        normalized_volume = min(volume / max_volume, 1.0)
-        hydrophobicity_score = self.calculate_hydrophobicity(residues)
-        polarity_score = self.calculate_polarity(residues, area)
-
-        # Calculate the score
-        score = (
-            normalized_volume * weights['volume'] +
-            hydrophobicity_score * weights['hydrophobicity'] +
-            polarity_score * weights['polarity']
-        )
-
-        return score, hydrophobicity_score, polarity_score
+        drug_score = 0.094 * volume + 0.60 * enclosure - 0.324 * hydrophilicity
+        return drug_score, hydrophilicity, enclosure
     
     def save_cavity_scores(self, cavity_path, program_cavities, cavity_ids):
         """
@@ -321,8 +197,7 @@ class CavityFinder:
                 volume = self.calculate_cavity_volume(grid_lines, grid_file_path)
                 
                 # Calculate other scores (e.g., hydrophobicity, polarity)
-                area = self.calculate_cavity_area(grid_file_path)  # Optional
-                score, hydrophobicity_score, polarity_score = self.score_cavity(volume, cavity['residues'], area)
+                score, hydrophilicity_score, enclosure = self.score_cavity(volume, grid_file_path, residue_file_path)
 
                 # Append the results to the scores list
                 scores.append({
@@ -333,16 +208,15 @@ class CavityFinder:
                     'grid_path': grid_file_path,
                     'residue_path': residue_file_path,
                     'volume': volume,
-                    'surface_area': area,
-                    'hydrophobicity_score': hydrophobicity_score,
-                    'polarity_score': polarity_score,
+                    'hydrophilicity_score': hydrophilicity_score,
+                    'enclosure': enclosure,
                     'score': score
                 })
 
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
-                        'Volume', 'Surface_Area', 'Hydrophobicity_Score', 'Polarity_Score', 'Score']
+                        'Volume', 'Hydrophilicity_Score', 'Enclosure', 'Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=';')
             writer.writeheader()
             for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Ordena por 'score'
@@ -354,9 +228,8 @@ class CavityFinder:
                     'Grid_Path': entry['grid_path'],
                     'Residue_Path': entry['residue_path'],
                     'Volume': f"{entry['volume']:.2f}",
-                    'Surface_Area': f"{entry['surface_area']:.2f}",
-                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
-                    'Polarity_Score': f"{entry['polarity_score']:.2f}",
+                    'Hydrophilicity_Score': f"{entry['hydrophilicity_score']:.2f}",
+                    'Enclosure': f"{entry['enclosure']:.2f}",
                     'Score': f"{entry['score']:.2f}"
                 })
 
