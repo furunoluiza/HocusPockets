@@ -122,6 +122,47 @@ class CavityFinder:
         plt.legend()
         plt.show()
 
+    import numpy as np
+
+    def calculate_centers_of_residues(self, residue_lines):
+        """
+        Calculates the geometric centers of residues based on ATOM entries.
+        Input:
+            residue_lines [list]: Lines of the PDB file containing ATOM entries.
+        Return:
+            [dict]: A dictionary where the keys are residue identifiers (e.g., 'ARG 248') 
+                    and the values are their geometric centers.
+        """
+        residues = {}
+        
+        for line in residue_lines:
+            # Extract residue information: amino acid name, chain ID, and residue number
+            amino_acid = line[17:20].strip()  # Extract amino acid name (e.g., 'ARG')
+            chain_id = line[21:22].strip()  # Extract chain id (e.g., 'A')
+            residue_number = line[22:26].strip()  # Extract residue number (e.g., '248')
+            
+            # Form a unique residue identifier: amino acid + chain + residue number
+            residue_id = f"{amino_acid} {chain_id} {residue_number}"
+            
+            # Extract atomic coordinates (x, y, z)
+            coords = np.array([float(line[30:38].strip()), 
+                            float(line[38:46].strip()), 
+                            float(line[46:54].strip())])
+            
+            # Store the coordinates of each atom in the residue
+            if residue_id not in residues:
+                residues[residue_id] = []
+            residues[residue_id].append(coords)
+        
+        # Calculate geometric centers
+        centers = {}
+        for residue_id, atom_coords in residues.items():
+            # Calculate the mean of the atom coordinates to find the geometric center
+            centers[residue_id] = np.mean(atom_coords, axis=0)
+        
+        return centers
+
+
     def calculate_cavity_volume(self, lines, pocket_file):
         """
         Calculates the volume of a cavity defined by atomic coordinates from PDB lines.
@@ -373,46 +414,55 @@ class ConCavityFinder(CavityFinder):
         cavities = {}
         with open(pockets_info, 'r') as file:  # Read the pocket information from the specified pocket file
             for line in file:
-                if line.startswith("HETATM"): # Check if the line corresponds to a pocket (HETATM entry)
-                    cavity_index = line[22:26].strip() 
+                if line.startswith("HETATM"):  # Check if the line corresponds to a pocket (HETATM entry)
+                    cavity_index = line[22:26].strip()
                     if cavity_index not in cavities:
                         cavities[cavity_index] = []
                     cavities[cavity_index].append(line)
+
         residue_lines = []
         with open(self.input_path, 'r') as file:  # Read the residue information from the .pdb input file
             for line in file:
-                if line.startswith("ATOM"): # Check if the line corresponds to an atom (ATOM entry)
+                if line.startswith("ATOM"):  # Check if the line corresponds to an atom (ATOM entry)
                     residue_lines.append(line)
+        # Calculate the geometric centers of residues
+        residue_centers = self.calculate_centers_of_residues(residue_lines)
+
         for index, coordinates in cavities.items():
             # Save pocket-specific data to a separate file
             pocket_output_file = os.path.join(output_path, f"grid_{index}_{method}.pdb")
             with open(pocket_output_file, 'w') as pocket_file:
                 pocket_file.writelines(coordinates)
-            if len(coordinates) >= 3: # Ensure there are enough points to calculate the convex hull
+
+            if len(coordinates) >= 3:  # Ensure there are enough points to calculate the convex hull
                 hull_points = np.array([
-                [float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())]
-                for line in coordinates
-            ])
-            hull = ConvexHull(hull_points)
-            # Identify residues close to the convex hull (<= 5.0 Å)
-            close_residues = set()  # Set to store unique residues
-            for res_line in residue_lines:
-                x_res, y_res, z_res = map(float, [res_line[30:38].strip(), res_line[38:46].strip(), res_line[46:54].strip()])
-                res_coord = np.array([x_res, y_res, z_res])
-                for hull_point in hull.points:
-                    if np.linalg.norm(res_coord - hull_point) <= 5.0:
-                        close_residues.add(res_line)
-            # Write nearby residues to an output file
-            close_residue_lines = list(close_residues)
-            output_file = os.path.join(output_path, f"residue_{index}_{method}.pdb")
-            with open(output_file, 'w') as out_file:
-                out_file.writelines(close_residue_lines)
-            # Plot the convex hull and nearby residues
-            residue_coords = np.array([
-                [float(res_line[30:38].strip()), float(res_line[38:46].strip()), float(res_line[46:54].strip())]
-                for res_line in close_residues
-            ])
-            #self.plot_hull_and_residues(hull_points, residue_coords, index, method)
+                    [float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())]
+                    for line in coordinates
+                ])
+                hull = ConvexHull(hull_points)
+
+                # Identify residues close to the convex hull (<= 6.0 Å)
+                close_residues = set()  # Set to store unique residues
+                for residue_id, center in residue_centers.items():
+                    for hull_point in hull.points:
+                        if np.linalg.norm(center - hull_point) <= 6.0:  # Distance threshold
+                            close_residues.add(residue_id)
+
+                print(f"Residues close to pocket {index}: {close_residues}")
+
+                # Collect ATOM lines of all atoms forming the identified residues
+                close_residue_lines = [
+                    line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues
+                ]
+
+                print(f"Lines of residues close to the cavity:\n{close_residue_lines}")
+                output_file = os.path.join(output_path, f"residue_{index}_{method}.pdb")
+                with open(output_file, 'w') as out_file:
+                    out_file.writelines(close_residue_lines)
+                # Plot the convex hull and nearby residue centers (optional)
+                residue_coords = np.array([residue_centers[res_id] for res_id in close_residues])
+                self.plot_hull_and_residues(hull_points, residue_coords, index, method)
+
 
     def access_concavity(self, input_file, method_output_dir, method):
         """
@@ -613,7 +663,7 @@ class FpocketFinder(CavityFinder):
                 ])
                 res_coord = np.array([x_res, y_res, z_res])
                 for hull_point in hull.points:
-                    if np.linalg.norm(res_coord - hull_point) <= 5.0:
+                    if np.linalg.norm(res_coord - hull_point) <= 4.0:
                         close_residues.add(res_line)
 
             # Escreve os resíduos próximos no arquivo de saída
