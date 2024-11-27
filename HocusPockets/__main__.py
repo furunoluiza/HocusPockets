@@ -5,7 +5,7 @@ import os
 from Initialize import *
 from CavityFinder import *
 
-# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
+# HocusPockets: Holistic Computacional Utility for Scoring Pockets
 class VerboseHandler:
     def __init__(self, verbose, output_path):
         self.verbose = verbose
@@ -23,18 +23,21 @@ class VerboseHandler:
         if self.log_file:
             self.log_file.close()
 
+# Main Function
 def main():
-    args = args_parse()
+    args = args_parse() 
     verbose_handler = VerboseHandler(args.verbose, args.output)
-    print(clrs['g'] + "Starting WhichCav!" + clrs['n'])
+    print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
     check_fpocket_installed(verbose_handler)
     check_concavity_installed(verbose_handler)
     verify_input(args)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
     cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.fpocket_score)
     cavity_finder.find_cavities()
-    print(clrs['g'] + "WhichCav has completed its execution." + clrs['n'])
+    print(clrs['g'] + "HocusPocktes has completed its execution." + clrs['n'])
     verbose_handler.close()
 
+
+# Execute
 if __name__ == "__main__":
     main()
