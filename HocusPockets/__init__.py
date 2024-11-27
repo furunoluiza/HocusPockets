@@ -1,5 +1,5 @@
 """
-Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
+HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
 Authors: Machado, L.F.; Torres, P.H.M.
 

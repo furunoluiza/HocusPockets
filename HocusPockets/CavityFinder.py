@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from Initialize import *
 
-# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
+# HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
 class CavityFinder:
     def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
@@ -25,11 +25,22 @@ class CavityFinder:
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
         Return:
             Nothing.
+        
+        Hydropobicity values retrieved from:
+        WIMLEY, W. C.; WHITE, S. H. Experimentally determined hydrophobicity scale for
+        proteins at membrane interfaces. Nature Structural Biology, 1996.
+        * B(ASX) takes the same value as D(ASP)
+        * Z(GLX) takes the same value as E(GLU)
         """
         self.input_path = input_path
         self.output_path = output_path
         self.verbose_handler = verbose_handler
         self.fpocket_score = fpocket_score
+        self.hydro = {"ALA": -0.17, "ARG": -0.81, "ASN": -0.42, "ASP": -1.23, "CYS": 0.24,
+                "GLN": -2.02, "GLU": -0.58, "GLY": -0.01, "HIS": -0.96, "ILE": 0.31,
+                "LEU": 0.56, "LYS": -0.99, "MET": 0.23, "PHE": 1.13, "PRO": -0.45,
+                "SER": -0.13, "THR": -0.14, "TRP": 1.85, "TYR": 0.94, "VAL": -0.07,
+                "MME": 0.23, "MSE": 0.23, "UNK": -0.17}
     
     @staticmethod
     def extract_residues_from_pdb(cavity_file):
@@ -78,20 +89,16 @@ class CavityFinder:
         # Cria uma figura 3D
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
-
         # Plota os pontos do Convex Hull
         hull = ConvexHull(hull_points)
         for simplex in hull.simplices:
             ax.plot(hull_points[simplex, 0], hull_points[simplex, 1], hull_points[simplex, 2], 'k-')
-
         # Plota todos os pontos da cavidade
         ax.scatter(hull_points[:, 0], hull_points[:, 1], hull_points[:, 2], color='blue', label='Hull Points')
-
         # Plota os resíduos próximos ao hull
         residue_points = np.array(residue_points)
         if len(residue_points) > 0:
             ax.scatter(residue_points[:, 0], residue_points[:, 1], residue_points[:, 2], color='red', label='Nearby Residues')
-
         # Configurações do gráfico
         ax.set_title(f"Cavity {cavity_index}_{method} - Convex Hull and Nearby Residues")
         ax.set_xlabel("X Coordinate")
@@ -132,26 +139,21 @@ class CavityFinder:
                 and the values are their geometric centers.
         """
         residues = {}
-        
         for line in residue_lines:
             # Extract residue information: amino acid name, chain ID, and residue number
             amino_acid = line[17:20].strip()  # Extract amino acid name (e.g., 'ARG')
             chain_id = line[21:22].strip()  # Extract chain id (e.g., 'A')
             residue_number = line[22:26].strip()  # Extract residue number (e.g., '248')
-            
             # Form a unique residue identifier: amino acid + chain + residue number
             residue_id = f"{amino_acid} {chain_id} {residue_number}"
-            
             # Extract atomic coordinates (x, y, z)
             coords = np.array([float(line[30:38].strip()), 
                             float(line[38:46].strip()), 
                             float(line[46:54].strip())])
-            
             # Store the coordinates of each atom in the residue
             if residue_id not in residues:
                 residues[residue_id] = []
             residues[residue_id].append(coords)
-        
         # Calculate geometric centers
         centers = {}
         for residue_id, atom_coords in residues.items():
@@ -159,8 +161,7 @@ class CavityFinder:
             centers[residue_id] = np.mean(atom_coords, axis=0)
         return centers
 
-
-    def calculate_cavity_volume(self, lines, pocket_file):
+    def calculate_cavity_volume(self, lines):
         """
         Calculates the volume of a cavity defined by atomic coordinates from PDB lines.
         Input:
@@ -179,9 +180,7 @@ class CavityFinder:
                     coordinates.append([x, y, z])
                 except (ValueError, IndexError) as e:
                     print(f"Error processing line: {line.strip()} - {e}")
-        print(f"Number of coordinates for volume calculation: {len(coordinates)}")
         if len(coordinates) < 3:  # Check if there are at least three coordinates to define a volume
-            #print("Insufficient number of points to calculate the volume.")
             return 0
         try:
             # Create a convex hull from the list of coordinates
@@ -196,17 +195,30 @@ class CavityFinder:
     def calculate_enclosure(self, grid_file, residue_file):
         return 0
     
-    def calculate_hydrophilicity(self, grid_file, residue_file):
-        hydrophilicity_scores = []
-        return 0
-
+    def calculate_hydro(self, residue_file):
+        """
+        Calculates the total hydrophobicity of residues of the pocket.
+        Input:
+            residue_file [str]: Path to the residue file containing ATOM entries.
+        Return:
+            [float] Total hydrophobicity of residues in the residue file.
+        """
+        total_hydro = 0.0
+        # Read the residue file and extract residue names
+        with open(residue_file, 'r') as file:
+            for line in file:
+                if line.startswith("ATOM"):
+                    # Extract the residue name (columns 17-20 in PDB format)
+                    residue_name = line[17:20].strip()
+                    # Add hydrophobicity value to the total (default to -0.17 for unknown residues)
+                    total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
+        return total_hydro
 
     def score_cavity(self, volume, grid_file, residue_file):
         enclosure = self.calculate_enclosure(grid_file, residue_file)
-        hydrophilicity = self.calculate_hydrophilicity(grid_file, residue_file)
-
-        drug_score = 0.094 * volume + 0.60 * enclosure - 0.324 * hydrophilicity
-        return drug_score, hydrophilicity, enclosure
+        hydro = self.calculate_hydro(residue_file)
+        drug_score = 0.094 * volume + 0.60 * enclosure + 0.324 * hydro
+        return drug_score, hydro, enclosure
     
     def save_cavity_scores(self, cavity_path, program_cavities, cavity_ids):
         """
@@ -228,15 +240,12 @@ class CavityFinder:
                 grid_file_path = cavity['grid_path']
                 residue_file_path = cavity['residue_path']
                 cavity_id = cavity_ids.get(grid_file_path, None)
-
                 # Read grid lines and calculate volume
                 with open(grid_file_path, 'r') as f:
                     grid_lines = f.readlines()
-                volume = self.calculate_cavity_volume(grid_lines, grid_file_path)
-                
+                volume = self.calculate_cavity_volume(grid_lines)
                 # Calculate other scores (e.g., hydrophobicity, polarity)
-                score, hydrophilicity_score, enclosure = self.score_cavity(volume, grid_file_path, residue_file_path)
-
+                score, hydrophobicity_score, enclosure = self.score_cavity(volume, grid_file_path, residue_file_path)
                 # Append the results to the scores list
                 scores.append({
                     'cavity_id': cavity_id,
@@ -246,18 +255,17 @@ class CavityFinder:
                     'grid_path': grid_file_path,
                     'residue_path': residue_file_path,
                     'volume': volume,
-                    'hydrophilicity_score': hydrophilicity_score,
+                    'hydrophobicity_score': hydrophobicity_score,
                     'enclosure': enclosure,
                     'score': score
                 })
-
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
-                        'Volume', 'Hydrophilicity_Score', 'Enclosure', 'Score']
+                        'Volume', 'Hydrophobicity_Score', 'Enclosure', 'Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=';')
             writer.writeheader()
-            for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Ordena por 'score'
+            for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Sort by 'score'
                 writer.writerow({
                     'Cavity_ID': entry['cavity_id'],
                     'Program': entry['program'],
@@ -266,7 +274,7 @@ class CavityFinder:
                     'Grid_Path': entry['grid_path'],
                     'Residue_Path': entry['residue_path'],
                     'Volume': f"{entry['volume']:.2f}",
-                    'Hydrophilicity_Score': f"{entry['hydrophilicity_score']:.2f}",
+                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
                     'Enclosure': f"{entry['enclosure']:.2f}",
                     'Score': f"{entry['score']:.2f}"
                 })
@@ -352,7 +360,7 @@ class CavityFinder:
     
     def find_cavities(self):
         """
-        Main method to find cavities.
+        Main method to find cavities in a file or a directory.
         Input:
             Nothing.
         Return:
@@ -380,24 +388,6 @@ class ConCavityFinder(CavityFinder):
         """
         super().__init__(input_path, output_path, verbose_handler, fpocket_score)
     
-    def calculate_geometric_center(self, lines):
-        """
-        Calculates the geometric center of a set of atomic coordinates.
-        Input:
-            lines [list of str] - A list of lines, where each line contains atomic coordinates.
-        Return:
-            np.ndarray or None - The geometric center as a numpy array, or None if no coordinates are provided.
-        """
-        coordinates = []
-        for line in lines:
-            x = float(line[30:38].strip())
-            y = float(line[38:46].strip())
-            z = float(line[46:54].strip())
-            coordinates.append([x, y, z]) # Append the coordinates as a list to the coordinates list
-        # Calculate and return the mean coordinates if any were collected
-        # This computes the geometric center by averaging the coordinates
-        return np.mean(coordinates, axis=0) if coordinates else None
-
     def process_cavities(self, pockets_info, output_path, method):
         """
         Processes the pocket and residue information to identify and save residues close to each cavity.
@@ -416,7 +406,6 @@ class ConCavityFinder(CavityFinder):
                     if cavity_index not in cavities:
                         cavities[cavity_index] = []
                     cavities[cavity_index].append(line)
-
         residue_lines = []
         with open(self.input_path, 'r') as file:  # Read the residue information from the .pdb input file
             for line in file:
@@ -424,42 +413,29 @@ class ConCavityFinder(CavityFinder):
                     residue_lines.append(line)
         # Calculate the geometric centers of residues
         residue_centers = self.calculate_centers_of_residues(residue_lines)
-
         for index, coordinates in cavities.items():
             # Save pocket-specific data to a separate file
             pocket_output_file = os.path.join(output_path, f"grid_{index}_{method}.pdb")
             with open(pocket_output_file, 'w') as pocket_file:
                 pocket_file.writelines(coordinates)
-
             if len(coordinates) >= 3:  # Ensure there are enough points to calculate the convex hull
-                hull_points = np.array([
-                    [float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())]
-                    for line in coordinates
-                ])
+                hull_points = np.array([[float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())]
+                    for line in coordinates])
                 hull = ConvexHull(hull_points)
-
                 # Identify residues close to the convex hull (<= 6.0 Å)
                 close_residues = set()  # Set to store unique residues
                 for residue_id, center in residue_centers.items():
                     for hull_point in hull.points:
                         if np.linalg.norm(center - hull_point) <= 6.0:  # Distance threshold
                             close_residues.add(residue_id)
-
-                print(f"Residues close to pocket {index}: {close_residues}")
-
                 # Collect ATOM lines of all atoms forming the identified residues
-                close_residue_lines = [
-                    line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues
-                ]
-
-                print(f"Lines of residues close to the cavity:\n{close_residue_lines}")
+                close_residue_lines = [line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues]
                 output_file = os.path.join(output_path, f"residue_{index}_{method}.pdb")
                 with open(output_file, 'w') as out_file:
                     out_file.writelines(close_residue_lines)
                 # Plot the convex hull and nearby residue centers (optional)
                 residue_coords = np.array([residue_centers[res_id] for res_id in close_residues])
                 #self.plot_hull_and_residues(hull_points, residue_coords, index, method)
-
 
     def access_concavity(self, input_file, method_output_dir, method):
         """
@@ -608,7 +584,7 @@ class FpocketFinder(CavityFinder):
             [list of dicts] A list of pockets that have a higher druggability score specified.
         """
         pockets = self.parse_info(pockets_info)
-        drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > 0.5]
+        drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > fpocket_score]
         return drug_pockets
 
     def process_fpocket_residues(self, pockets_paths, input_file):
@@ -618,7 +594,7 @@ class FpocketFinder(CavityFinder):
             pockets_paths [list of dicts] - List of dictionaries containing pocket paths and information.
             input_file [str] - Path to the input protein file (.pdb format).
         Return:
-            None. Residues near pockets are saved to files in the output directory.
+            Nothing.
         """
         # Read residue lines from the input protein file
         residue_lines = []
@@ -626,58 +602,34 @@ class FpocketFinder(CavityFinder):
             for line in file:
                 if line.startswith("ATOM"):  # Process only ATOM lines
                     residue_lines.append(line)
-        
         # Calculate geometric centers of residues
         residue_centers = self.calculate_centers_of_residues(residue_lines)
-
         for pocket in pockets_paths:
             pocket_number = pocket['pocket_number']
             pocket_path = pocket['path']  # Path to the pocket grid file
-
             # Load pocket grid coordinates
             pocket_coordinates = []
             with open(pocket_path, 'r') as pocket_file:
                 for line in pocket_file:
                     if line.startswith("ATOM"):  # Consider only ATOM entries
-                        x, y, z = map(float, [
-                            line[30:38].strip(),
-                            line[38:46].strip(),
-                            line[46:54].strip()
-                        ])
+                        x, y, z = map(float, [line[30:38].strip(), line[38:46].strip(), line[46:54].strip()])
                         pocket_coordinates.append([x, y, z])
-
             if len(pocket_coordinates) < 3:
                 continue  # Skip pockets with fewer than 3 points
-
             pocket_points = np.array(pocket_coordinates)
             hull = ConvexHull(pocket_points)
-
             # Identify residues close to the convex hull (<= 6.0 Å)
             close_residues = set()
             for residue_id, center in residue_centers.items():
                 for hull_point in hull.points:
                     if np.linalg.norm(center - hull_point) <= 6.0:  # Distance threshold
                         close_residues.add(residue_id)
-
-            # Also check residues near any pocket grid point (<= 4.0 Å)
-            for residue_id, center in residue_centers.items():
-                for grid_point in pocket_points:
-                    if np.linalg.norm(center - grid_point) <= 4.0:
-                        close_residues.add(residue_id)
-
             # Collect ATOM lines of all atoms forming the identified residues
-            close_residue_lines = [
-                line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues
-            ]
-
+            close_residue_lines = [line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues]
             # Save residue information
-            residue_output_file = os.path.join(
-            os.path.dirname(pocket_path),  # Same directory as the grid file
-            f"residue_{pocket_number}_fpocket.pdb"  # New naming format
-        )
+            residue_output_file = os.path.join(os.path.dirname(pocket_path), f"residue_{pocket_number}_fpocket.pdb")
             with open(residue_output_file, 'w') as out_file:
                 out_file.writelines(close_residue_lines)
-
             # Plot the convex hull and nearby residue centers (optional)
             residue_coords = np.array([residue_centers[res_id] for res_id in close_residues])
             #self.plot_hull_and_residues(pocket_points, residue_coords, pocket_number, "fpocket")
@@ -688,7 +640,6 @@ class FpocketFinder(CavityFinder):
         Retrieves paths to druggable pockets' files.
         Input:
             input_file [str] - Path to the input protein file.
-
         Return:
             [list of dicts] A list of dictionaries containing paths to each druggable pocket.
         """
@@ -714,7 +665,6 @@ class FpocketFinder(CavityFinder):
         Input:
             pockets_paths [list of dicts] - List of dictionaries containing information about each pocket.
             input_file [str] - Path to the protein input file being processed.
-            
         Return:
             [list of dicts] List of dictionaries for each pocket.
         """

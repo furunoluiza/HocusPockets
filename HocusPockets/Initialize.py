@@ -7,7 +7,7 @@ import argparse
 import textwrap as tw
 import subprocess
 
-# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
+# HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
 # Dictionary for colors
 clrs = {
@@ -66,7 +66,7 @@ def args_parse():
     parser.add_argument(
         '--fpocket-score',
         type=float,
-        default=0.0,
+        default=0.5,
         metavar="",
         help='Minimum druggability score for Fpocket (default: 0.5). Only pockets with a score greater than this will be considered.'
     )

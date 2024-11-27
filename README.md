@@ -1,10 +1,10 @@
-# Hocus Pockus: Holistic Computacional Utility for Scoring Pockets
+# HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Hocus Pockus is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
+HocusPockets is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
 
 ## Prerequisites
 
-Before using WhichCav, ensure the following packages and external programs are installed:
+Before using HocusPockets, ensure the following packages and external programs are installed:
 
 ### Python packages
 
@@ -12,19 +12,25 @@ Before using WhichCav, ensure the following packages and external programs are i
 > * sys
 > * argparse
 > * subprocess
+> * textwrap
 > * shutil
+> * csv
+> * pandas
+> * numpy
+> * scipy.spatial
 
 ### External software
 > * [fpocket](https://github.com/Discngine/fpocket/tree/master)
+> * [ConCavity](https://compbio.cs.princeton.edu/concavity/)
 
 ## Usage
 
 You can use WhichCav with either a .pdb or .cif file format:
 ```bash
-python3 ./WhichCav/ -f file.pdb -o output_path
+python3 ./HocusPockets/ -f file.pdb -o output_path
 ```
 
 For a full list of options, run:
 ```bash
-python3 ./WhichCav/ -h
+python3 ./HocusPockets/ -h
 ```
