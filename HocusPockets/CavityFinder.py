@@ -10,14 +10,14 @@ Descrição do que esse arquivo faz
 ###############################################################################
 import subprocess
 import shutil
-import os
-import csv
 import pandas as pd
 import numpy as np
 from scipy.spatial import ConvexHull #volume
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from Initialize import *
+from ScoringPockets import *
+
 
 # License
 ###############################################################################
@@ -129,28 +129,6 @@ class CavityFinder:
         ax.legend()
         plt.show()
 
-    def plot_cavity(self, coordinates, pocket_file):
-        # Criação do Convex Hull
-        hull = ConvexHull(coordinates)
-        # Plotagem em 3D
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-        # Plota os pontos atômicos
-        coordinates = np.array(coordinates)
-        ax.scatter(coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], color="blue", alpha=0.5, label="Átomos")
-        # Plota as faces do Convex Hull
-        for simplex in hull.simplices:
-            simplex = np.append(simplex, simplex[0])  # Fecha o loop para o desenho
-            ax.plot(coordinates[simplex, 0], coordinates[simplex, 1], coordinates[simplex, 2], "k-")
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
-        plt.title(f"Visualização da Cavidade Convexa - {pocket_file}")
-        plt.legend()
-        plt.show()
-
-    import numpy as np
-
     def calculate_centers_of_residues(self, residue_lines):
         """
         Calculates the geometric centers of residues based on ATOM entries.
@@ -182,125 +160,6 @@ class CavityFinder:
             # Calculate the mean of the atom coordinates to find the geometric center
             centers[residue_id] = np.mean(atom_coords, axis=0)
         return centers
-
-    def calculate_cavity_volume(self, lines):
-        """
-        Calculates the volume of a cavity defined by atomic coordinates from PDB lines.
-        Input:
-        lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
-        Return:
-        [float] The calculated volume of the cavity based on its atomic coordinates,
-                or 0 if insufficient points are provided or if an error occurs.
-        """
-        coordinates = []
-        for line in lines:
-            if line.startswith("ATOM") or line.startswith("HETATM"):
-                try:
-                    x = float(line[30:38].strip())
-                    y = float(line[38:46].strip())
-                    z = float(line[46:54].strip())
-                    coordinates.append([x, y, z])
-                except (ValueError, IndexError) as e:
-                    print(f"Error processing line: {line.strip()} - {e}")
-        if len(coordinates) < 3:  # Check if there are at least three coordinates to define a volume
-            return 0
-        try:
-            # Create a convex hull from the list of coordinates
-            # The convex hull is the smallest convex shape that encloses all the points
-            hull = ConvexHull(coordinates)
-            #self.plot_cavity(coordinates, pocket_file) #Plotar cavidades
-            return hull.volume  # Return the volume of the convex hull
-        except Exception as e:
-            print(f"Error creating convex hull: {e}")
-            return 0
-        
-    def calculate_enclosure(self, grid_file, residue_file):
-        return 0
-    
-    def calculate_hydro(self, residue_file):
-        """
-        Calculates the total hydrophobicity of residues of the pocket.
-        Input:
-            residue_file [str]: Path to the residue file containing ATOM entries.
-        Return:
-            [float] Total hydrophobicity of residues in the residue file.
-        """
-        total_hydro = 0.0
-        # Read the residue file and extract residue names
-        with open(residue_file, 'r') as file:
-            for line in file:
-                if line.startswith("ATOM"):
-                    # Extract the residue name (columns 17-20 in PDB format)
-                    residue_name = line[17:20].strip()
-                    # Add hydrophobicity value to the total (default to -0.17 for unknown residues)
-                    total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
-        return total_hydro
-
-    def score_cavity(self, volume, grid_file, residue_file):
-        enclosure = self.calculate_enclosure(grid_file, residue_file)
-        hydro = self.calculate_hydro(residue_file)
-        drug_score = 0.094 * volume + 0.60 * enclosure + 0.324 * hydro
-        return drug_score, hydro, enclosure
-    
-    def save_cavity_scores(self, cavity_path, program_cavities, cavity_ids):
-        """
-        Calculates and saves cavity scores for different programs into a text file.
-        Input:
-            cavity_path      [str]  - The path to the directory containing the cavity data.
-            program_cavities [dict] - A dictionary with program names as keys and a list of cavities as values.
-            cavity_ids       [dict] - A dictionary mapping grid file paths to cavity IDs.
-        Return:
-            Nothing.
-        """
-        # Define output path early
-        protein_dir = os.path.join(self.output_path, os.path.basename(cavity_path))
-        os.makedirs(protein_dir, exist_ok=True)
-        output_file = os.path.join(protein_dir, "cavity_scores.csv")
-        scores = []
-        for program, cavities in program_cavities.items():
-            for cavity in cavities:
-                grid_file_path = cavity['grid_path']
-                residue_file_path = cavity['residue_path']
-                cavity_id = cavity_ids.get(grid_file_path, None)
-                # Read grid lines and calculate volume
-                with open(grid_file_path, 'r') as f:
-                    grid_lines = f.readlines()
-                volume = self.calculate_cavity_volume(grid_lines)
-                # Calculate other scores (e.g., hydrophobicity, polarity)
-                score, hydrophobicity_score, enclosure = self.score_cavity(volume, grid_file_path, residue_file_path)
-                # Append the results to the scores list
-                scores.append({
-                    'cavity_id': cavity_id,
-                    'program': program,
-                    'grid_file': os.path.basename(grid_file_path),
-                    'residue_file': os.path.basename(residue_file_path),
-                    'grid_path': grid_file_path,
-                    'residue_path': residue_file_path,
-                    'volume': volume,
-                    'hydrophobicity_score': hydrophobicity_score,
-                    'enclosure': enclosure,
-                    'score': score
-                })
-        # Write results to the output file
-        with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
-                        'Volume', 'Hydrophobicity_Score', 'Enclosure', 'Score']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=';')
-            writer.writeheader()
-            for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Sort by 'score'
-                writer.writerow({
-                    'Cavity_ID': entry['cavity_id'],
-                    'Program': entry['program'],
-                    'Grid_File': entry['grid_file'],
-                    'Residue_File': entry['residue_file'],
-                    'Grid_Path': entry['grid_path'],
-                    'Residue_Path': entry['residue_path'],
-                    'Volume': f"{entry['volume']:.2f}",
-                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
-                    'Enclosure': f"{entry['enclosure']:.2f}",
-                    'Score': f"{entry['score']:.2f}"
-                })
-
 
     def compare_cavities(self, cavity_path):
         """
@@ -347,7 +206,8 @@ class CavityFinder:
                                 print(f"Cavities {os.path.basename(pocket_a['residue_path'])} (from {prog_a}) and {os.path.basename(pocket_b['residue_path'])} (from {prog_b}) are considered equal.")
                             pocket_b['id'] = pocket_a['id']  # Ensure the second cavity has the same ID as the first one
                             cavity_ids[pocket_b['grid_path']] = pocket_a['id']  # Update the cavity ID dictionary
-        self.save_cavity_scores(cavity_path, program_cavities, cavity_ids)
+        score_cavity = ScoringPockets(self.input_path, self.output_path, self.verbose_handler)
+        score_cavity.save_cavity_scores(cavity_path, program_cavities, cavity_ids)
     
     def find_cavities_in_directory(self):
         """
