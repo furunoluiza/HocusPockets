@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 
+# Description
+###############################################################################
+'''
+Descrição do que esse arquivo faz
+'''
+
 # Imports
+###############################################################################
 import subprocess
 import shutil
 import os
@@ -12,7 +19,22 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from Initialize import *
 
-# HocusPockets: Holistic Computacional Utility for Scoring Pockets
+# License
+###############################################################################
+'''
+HocusPockets: Holistic Computacional Utility for Scoring Pockets
+
+Authors: Machado, L.F.; Torres, P.H.M.
+
+[Federal University of Rio de Janeiro]
+
+Contact info:
+Carlos Chagas Filho Institute of Biophysics
+LMDM - Laboratory for Molecular Modeling and Dynamics
+Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
+Health Sciences Centre - block G1-19
+E-mail address: luizafuruno@ufrj.br
+'''
 
 class CavityFinder:
     def __init__(self, input_path, output_path, verbose_handler, fpocket_score):

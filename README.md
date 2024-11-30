@@ -27,7 +27,7 @@ Before using HocusPockets, ensure the following packages and external programs a
 
 You can use WhichCav with either a .pdb or .cif file format:
 ```bash
-python3 ./HocusPockets/ -f file.pdb -o output_path
+python3 ./HocusPockets/ -i file.pdb -o output_path
 ```
 
 For a full list of options, run:

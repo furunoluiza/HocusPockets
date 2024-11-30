@@ -1,11 +1,34 @@
 #!/usr/bin/env python3
 
+# Description
+###############################################################################
+'''
+Descrição do que esse arquivo faz
+'''
+
 # Imports
+###############################################################################
 import os
 from Initialize import *
 from CavityFinder import *
 
-# HocusPockets: Holistic Computacional Utility for Scoring Pockets
+# License
+###############################################################################
+'''
+HocusPockets: Holistic Computacional Utility for Scoring Pockets
+
+Authors: Machado, L.F.; Torres, P.H.M.
+
+[Federal University of Rio de Janeiro]
+
+Contact info:
+Carlos Chagas Filho Institute of Biophysics
+LMDM - Laboratory for Molecular Modeling and Dynamics
+Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
+Health Sciences Centre - block G1-19
+E-mail address: luizafuruno@ufrj.br
+'''
+
 class VerboseHandler:
     def __init__(self, verbose, output_path):
         self.verbose = verbose
@@ -34,7 +57,7 @@ def main():
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
     cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.fpocket_score)
     cavity_finder.find_cavities()
-    print(clrs['g'] + "HocusPocktes has completed its execution." + clrs['n'])
+    print(clrs['g'] + "HocusPockets has completed its execution." + clrs['n'])
     verbose_handler.close()
 
 
