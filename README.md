@@ -116,7 +116,7 @@ source /opt/intel/oneapi/setvars.sh
     
 ## Usage
 
-You can use WhichCav with either a .pdb or .cif file format:
+You can use HocusPockets with either a .pdb or .cif file format:
 ```bash
 python3 ./HocusPockets/ -i file.pdb -o output_path
 ```
