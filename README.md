@@ -32,7 +32,7 @@ To properly install and use the **RADI** software, follow these steps:
 ### 1. Download and Unpack the Source Files
 
 ```bash
-tar -xzvf arquivo.tar.gz
+tar -xzvf file.tar.gz
 ```
 
 ### 2. Install Intel Fortran Compiler
