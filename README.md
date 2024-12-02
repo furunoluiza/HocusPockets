@@ -37,12 +37,9 @@ tar -xzvf file.tar.gz
 
 ### 2. Install Intel Fortran Compiler
 
-Install the Intel Fortran Compiler (ifx) via the Intel OneAPI repository:
-```bash
-sudo apt install intel-oneapi-compiler-fortran
-```
+You will need the Intel Fortran Compiler (ifx) to compile RADI. Follow all the installation steps provided on the [Intel Fortran Compiler Installation Guide](https://www.intel.com/content/www/us/en/developer/tools/oneapi/fortran-compiler-download.html?operatingsystem=linux&distribution-linux=apt).  
 
-Configure the environment for Intel compilers:
+Once installed, configure the environment by sourcing the `setvars.sh` script:
 ```bash
 source /opt/intel/oneapi/setvars.sh
 ```

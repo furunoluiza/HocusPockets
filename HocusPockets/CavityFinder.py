@@ -207,7 +207,7 @@ class CavityFinder:
                             pocket_b['id'] = pocket_a['id']  # Ensure the second cavity has the same ID as the first one
                             cavity_ids[pocket_b['grid_path']] = pocket_a['id']  # Update the cavity ID dictionary
         score_cavity = ScoringPockets(self.input_path, self.output_path, self.verbose_handler)
-        score_cavity.save_cavity_scores(cavity_path, program_cavities, cavity_ids)
+        score_cavity.score_routine(cavity_path, program_cavities, cavity_ids)
     
     def find_cavities_in_directory(self):
         """

@@ -10,6 +10,7 @@ Descrição do que esse arquivo faz
 ###############################################################################
 import os
 import csv
+import subprocess
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import ConvexHull #volume
@@ -92,9 +93,6 @@ class ScoringPockets:
             except Exception as e:
                 print(f"Error creating convex hull: {e}")
                 return 0
-            
-    def calculate_enclosure(self, grid_file, residue_file):
-        return 0
     
     def calculate_hydro(self, residue_file):
         """
@@ -116,12 +114,11 @@ class ScoringPockets:
         return total_hydro
 
     def score_cavity(self, volume, grid_file, residue_file):
-        enclosure = self.calculate_enclosure(grid_file, residue_file)
         hydro = self.calculate_hydro(residue_file)
-        drug_score = 0.094 * volume + 0.60 * enclosure + 0.324 * hydro
-        return drug_score, hydro, enclosure
+        drug_score = 0.094 * volume + 0.324 * hydro
+        return drug_score, hydro
     
-    def save_cavity_scores(self, cavity_path, program_cavities, cavity_ids):
+    def save_cavity_scores(self, cavity_path, scores):
         """
         Calculates and saves cavity scores for different programs into a text file.
         Input:
@@ -135,35 +132,10 @@ class ScoringPockets:
         protein_dir = os.path.join(self.output_path, os.path.basename(cavity_path))
         os.makedirs(protein_dir, exist_ok=True)
         output_file = os.path.join(protein_dir, "cavity_scores.csv")
-        scores = []
-        for program, cavities in program_cavities.items():
-            for cavity in cavities:
-                grid_file_path = cavity['grid_path']
-                residue_file_path = cavity['residue_path']
-                cavity_id = cavity_ids.get(grid_file_path, None)
-                # Read grid lines and calculate volume
-                with open(grid_file_path, 'r') as f:
-                    grid_lines = f.readlines()
-                volume = self.calculate_cavity_volume(grid_lines)
-                # Calculate other scores (e.g., hydrophobicity, polarity)
-                score, hydrophobicity_score, enclosure = self.score_cavity(volume, grid_file_path, residue_file_path)
-                # Append the results to the scores list
-                scores.append({
-                    'cavity_id': cavity_id,
-                    'program': program,
-                    'grid_file': os.path.basename(grid_file_path),
-                    'residue_file': os.path.basename(residue_file_path),
-                    'grid_path': grid_file_path,
-                    'residue_path': residue_file_path,
-                    'volume': volume,
-                    'hydrophobicity_score': hydrophobicity_score,
-                    'enclosure': enclosure,
-                    'score': score
-                })
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
-                        'Volume', 'Hydrophobicity_Score', 'Enclosure', 'Score']
+                        'Volume', 'Volume_Radi', 'Hydrophobicity_Score', 'Radius', 'Surface', 'Diameter', 'Smallest_Size', 'Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=',')
             writer.writeheader()
             for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Sort by 'score'
@@ -175,7 +147,102 @@ class ScoringPockets:
                     'Grid_Path': entry['grid_path'],
                     'Residue_Path': entry['residue_path'],
                     'Volume': f"{entry['volume']:.2f}",
+                    'Volume_Radi': f"{entry['volume_radi']:.2f}",
                     'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
-                    'Enclosure': f"{entry['enclosure']:.2f}",
+                    'Radius': f"{entry['radius']:.2f}",
+                    'Surface': f"{entry['surface']:.2f}",
+                    'Diameter': f"{entry['diameter']:.2f}",
+                    'Smallest_Size': f"{entry['smallest_size']:.2f}",
                     'Score': f"{entry['score']:.2f}"
                 })
+    
+    def score_routine(self, cavity_path, program_cavities, cavity_ids):
+        geometric_descriptors = GeometricDescriptors(self.input_path, self.output_path, self.verbose_handler)
+        scores = []
+        for program, cavities in program_cavities.items():
+            for cavity in cavities:
+                grid_file_path = cavity['grid_path']
+                residue_file_path = cavity['residue_path']
+                cavity_id = cavity_ids.get(grid_file_path, None)
+                # Read grid lines and calculate volume
+                with open(grid_file_path, 'r') as f:
+                    grid_lines = f.readlines()
+                volume = self.calculate_cavity_volume(grid_lines)
+                radius, surface, diameter, volume_radi, smallest_size = geometric_descriptors.run_radi(grid_file_path)
+                # Calculate other scores (e.g., hydrophobicity, polarity)
+                score, hydrophobicity_score = self.score_cavity(volume, grid_file_path, residue_file_path)
+                # Append the results to the scores list
+                scores.append({
+                    'cavity_id': cavity_id,
+                    'program': program,
+                    'grid_file': os.path.basename(grid_file_path),
+                    'residue_file': os.path.basename(residue_file_path),
+                    'grid_path': grid_file_path,
+                    'residue_path': residue_file_path,
+                    'volume': volume,
+                    'volume_radi': volume_radi,
+                    'hydrophobicity_score': hydrophobicity_score,
+                    'radius': radius,
+                    'surface': surface,
+                    'diameter': diameter,
+                    'smallest_size': smallest_size,
+                    'score': score
+                })
+        self.save_cavity_scores(cavity_path, scores)
+
+class GeometricDescriptors(ScoringPockets):
+    def __init__(self, input_path, output_path, verbose_handler):
+        super().__init__(input_path, output_path, verbose_handler)
+
+    def process_radi_file(self, output_path):
+        radius, surface, diameter, volume, smallest_size = None, None, None, None, None
+        
+        try:
+            with open(output_path, "r") as f:
+                lines = f.readlines()
+                for line in lines:
+                    parts = line.split()
+                    if not parts:
+                        continue  # Ignorar linhas vazias
+                    # Validar cada dado necessário com base na estrutura esperada
+                    if "RADIUS" in line.upper():
+                        radius = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
+                    elif "SURFACE" in line.upper():
+                        surface = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
+                    elif "DIAMETER" in line.upper():
+                        diameter = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
+                    elif "VOLUME" in line.upper():
+                        volume = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
+                    elif "SIZE" in line.upper():
+                        smallest_size = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
+        except Exception as e:
+            print(f"Erro ao processar o arquivo {output_path}: {e}")
+        return radius, surface, diameter, volume, smallest_size
+
+    def run_radi(self, grid_path):
+        # Criando o arquivo de entrada
+        input_file = "in.i"
+        with open(input_file, "w") as f:
+            f.write("PDB\n")
+            f.write(f"{grid_path}\n")
+            f.write("EPSTAB\n")
+        # Definindo o nome do arquivo de saída
+        grid_name = os.path.splitext(os.path.basename(grid_path))[0]
+        output_file = grid_name + "_radi"
+        process = subprocess.Popen(
+            f'radi < {input_file} > {output_file}',
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        process.kill()
+        os.remove(input_file)
+        # Processando o arquivo de saída gerado
+        if os.path.exists(output_file):
+            output_path = os.path.abspath(output_file)
+            radius, surface, diameter, volume, smallest_size = self.process_radi_file(output_path)
+            #os.remove(output_file)
+            return radius, surface, diameter, volume, smallest_size
+        else:
+            print("Arquivo de saída não encontrado.")
+            return None, None, None, None, None
