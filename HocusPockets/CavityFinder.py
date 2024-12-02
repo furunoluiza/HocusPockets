@@ -299,7 +299,33 @@ class ConCavityFinder(CavityFinder):
             # Save pocket-specific data to a separate file
             pocket_output_file = os.path.join(output_path, f"grid_{index}_{method}.pdb")
             with open(pocket_output_file, 'w') as pocket_file:
-                pocket_file.writelines(coordinates)
+                for line in coordinates:
+                    # Extract atom index and residue index
+                    atom_index = int(line[6:11].strip())  # Extract atom index (e.g., 0) as integer
+                    residue_index = int(line[22:26].strip())  # Extract residue index (e.g., 0) as integer
+                    
+                    # Combine atom and residue indices into a single value
+                    combined_index = f"{atom_index}_{residue_index}"
+                    
+                    # Extract coordinates
+                    x = float(line[30:38].strip())  # X coordinate
+                    y = float(line[38:46].strip())  # Y coordinate
+                    z = float(line[46:54].strip())  # Z coordinate
+                    
+                    # Extract the last two columns (occupancy and temperature factor)
+                    occupancy = line[54:60].strip()
+                    temperature_factor = line[60:66].strip()
+                    
+                    # Format the line in the same way as the ATOM entry
+                    new_line = f"ATOM  {atom_index:5d}    H POC {residue_index:5d}     {x:7.3f} {y:7.3f} {z:7.3f}    {occupancy:6s}   {temperature_factor:6s}\n"
+                    
+                    # Write the new line to the file
+                    pocket_file.write(new_line)
+                # Escreve a linha "TER" indicando o fim de um segmento de polipeptídeo
+                pocket_file.write("TER\n")
+                
+                # Escreve a linha "END" indicando o final do arquivo
+                pocket_file.write("END\n")
             if len(coordinates) >= 3:  # Ensure there are enough points to calculate the convex hull
                 hull_points = np.array([[float(line[30:38].strip()), float(line[38:46].strip()), float(line[46:54].strip())]
                     for line in coordinates])

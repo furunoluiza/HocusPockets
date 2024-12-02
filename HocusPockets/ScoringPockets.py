@@ -11,6 +11,7 @@ Descrição do que esse arquivo faz
 import os
 import csv
 import subprocess
+import time
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import ConvexHull #volume
@@ -147,12 +148,12 @@ class ScoringPockets:
                     'Grid_Path': entry['grid_path'],
                     'Residue_Path': entry['residue_path'],
                     'Volume': f"{entry['volume']:.2f}",
-                    'Volume_Radi': f"{entry['volume_radi']:.2f}",
+                    'Volume_Radi': f"{entry['volume_radi']}",
                     'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
-                    'Radius': f"{entry['radius']:.2f}",
-                    'Surface': f"{entry['surface']:.2f}",
-                    'Diameter': f"{entry['diameter']:.2f}",
-                    'Smallest_Size': f"{entry['smallest_size']:.2f}",
+                    'Radius': f"{entry['radius']}",
+                    'Surface': f"{entry['surface']}",
+                    'Diameter': f"{entry['diameter']}",
+                    'Smallest_Size': f"{entry['smallest_size']}",
                     'Score': f"{entry['score']:.2f}"
                 })
     
@@ -219,7 +220,57 @@ class GeometricDescriptors(ScoringPockets):
             print(f"Erro ao processar o arquivo {output_path}: {e}")
         return radius, surface, diameter, volume, smallest_size
 
+    @staticmethod
+    def check_and_adjust_coordinates(grid_path):
+        """
+        Checks for negative coordinates in the grid file and creates a new adjusted file
+        if necessary. Applies a uniform translation using the smallest negative value across all axes.
+
+        Args:
+            grid_path (str): Path to the input grid file.
+        
+        Returns:
+            str: Path to the adjusted file if created, otherwise the original file path.
+        """
+        adjusted_file = "adjusted_grid.pdb"
+        min_value = 0  # To store the smallest (most negative) value across all axes
+        coordinates = []  # To store lines and their coordinates
+
+        # Read the grid file and identify the smallest value across all axes
+        with open(grid_path, "r") as file:
+            for line in file:
+                if line.startswith("HETATM"):
+                    x, y, z = map(float, [line[30:38], line[38:46], line[46:54]])
+                    min_value = min(min_value, x, y, z)  # Find the smallest value across x, y, z
+                    coordinates.append((line, x, y, z))
+                else:
+                    coordinates.append((line, None, None, None))  # Non-coordinate lines remain unchanged
+
+        # Determine if adjustments are needed
+        if min_value < 0:
+            print("tem minimo")
+            offset = -min_value  # Calculate the uniform offset to make all values positive
+
+            # Create the adjusted file with a REMARK indicating the changes
+            with open(adjusted_file, "w") as file:
+                file.write("REMARK 1 Coordinates adjusted: uniformly translated to avoid negative values.\n")
+                for line, x, y, z in coordinates:
+                    if x is not None:  # For coordinate lines
+                        new_x, new_y, new_z = x + offset, y + offset, z + offset
+                        file.write(
+                            f"{line[:30]}{new_x:8.3f}{new_y:8.3f}{new_z:8.3f}{line[54:]}"
+                        )
+                    else:
+                        file.write(line)
+            return adjusted_file
+        return grid_path
+
+
+
     def run_radi(self, grid_path):
+        print(grid_path)
+        #adjusted_grid_path = self.check_and_adjust_coordinates(grid_path)
+        print("saiu")
         # Criando o arquivo de entrada
         input_file = "in.i"
         with open(input_file, "w") as f:
@@ -228,21 +279,28 @@ class GeometricDescriptors(ScoringPockets):
             f.write("EPSTAB\n")
         # Definindo o nome do arquivo de saída
         grid_name = os.path.splitext(os.path.basename(grid_path))[0]
-        output_file = grid_name + "_radi"
-        process = subprocess.Popen(
-            f'radi < {input_file} > {output_file}',
-            shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        process.kill()
-        os.remove(input_file)
-        # Processando o arquivo de saída gerado
-        if os.path.exists(output_file):
-            output_path = os.path.abspath(output_file)
-            radius, surface, diameter, volume, smallest_size = self.process_radi_file(output_path)
-            #os.remove(output_file)
-            return radius, surface, diameter, volume, smallest_size
-        else:
-            print("Arquivo de saída não encontrado.")
-            return None, None, None, None, None
+        output_file = f"{grid_name}_radi.txt"
+
+        try:
+            # Executando o radi
+            bash_process = subprocess.call(
+                f'radi < {input_file} > {output_file}',
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            # Verifica se o arquivo de saída foi gerado e o processa
+            if os.path.exists(output_file):
+                output_path = os.path.abspath(output_file)
+                radius, surface, diameter, volume, smallest_size = self.process_radi_file(output_path)
+                print(f"Resultado: {radius}, {surface}, {diameter}, {volume}, {smallest_size}")
+                return radius, surface, diameter, volume, smallest_size
+        finally:
+            # Limpeza: removendo arquivos temporários
+            if os.path.exists(input_file):
+                os.remove(input_file)
+            if os.path.exists(output_file):
+                os.remove(output_file)
+            #if adjusted_grid_path != grid_path and os.path.exists(adjusted_grid_path):
+                #os.remove(adjusted_grid_path)
+
