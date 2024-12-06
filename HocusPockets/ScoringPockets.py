@@ -11,7 +11,6 @@ Descrição do que esse arquivo faz
 import os
 import csv
 import subprocess
-import time
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import ConvexHull #volume
@@ -97,13 +96,15 @@ class ScoringPockets:
     
     def calculate_hydro(self, residue_file):
         """
-        Calculates the total hydrophobicity of residues of the pocket.
+        Calculates the average hydrophobicity of residues of the pocket.
         Input:
             residue_file [str]: Path to the residue file containing ATOM entries.
         Return:
-            [float] Total hydrophobicity of residues in the residue file.
+            [float] Average hydrophobicity of residues in the residue file.
         """
         total_hydro = 0.0
+        residue_count = 0  # Counter for the number of residues
+
         # Read the residue file and extract residue names
         with open(residue_file, 'r') as file:
             for line in file:
@@ -112,7 +113,14 @@ class ScoringPockets:
                     residue_name = line[17:20].strip()
                     # Add hydrophobicity value to the total (default to -0.17 for unknown residues)
                     total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
-        return total_hydro
+                    residue_count += 1  # Increment the residue count
+
+        # Calculate the average hydrophobicity if there are residues
+        if residue_count > 0:
+            return total_hydro / residue_count
+        else:
+            return 0.0  # Return 0 if no residues were found
+
 
     def score_cavity(self, volume, grid_file, residue_file):
         hydro = self.calculate_hydro(residue_file)
@@ -197,27 +205,40 @@ class GeometricDescriptors(ScoringPockets):
 
     def process_radi_file(self, output_path):
         radius, surface, diameter, volume, smallest_size = None, None, None, None, None
-        
+
         try:
             with open(output_path, "r") as f:
                 lines = f.readlines()
                 for line in lines:
-                    parts = line.split()
-                    if not parts:
-                        continue  # Ignorar linhas vazias
-                    # Validar cada dado necessário com base na estrutura esperada
-                    if "RADIUS" in line.upper():
-                        radius = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
-                    elif "SURFACE" in line.upper():
-                        surface = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
-                    elif "DIAMETER" in line.upper():
-                        diameter = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
-                    elif "VOLUME" in line.upper():
-                        volume = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
-                    elif "SIZE" in line.upper():
-                        smallest_size = float(parts[-1]) if parts[-1].replace('.', '', 1).isdigit() else None
+                    # Normaliza a linha para evitar problemas com maiúsculas/minúsculas
+                    line = line.upper().strip()
+
+                    # Identifica e extrai o valor de RADIUS
+                    if "RADIUS" in line and "=" in line:
+                        parts = line.split("=")
+                        radius = float(parts[1].split()[0].strip(" ;"))
+                    # Identifica e extrai o valor de SURFACE
+                    if "SURFACE" in line and "=" in line:
+                        parts = line.split("=")
+                        surface = float(parts[1].split()[0].strip(" ;"))
+                    # Identifica e extrai o valor de DIAMETER
+                    if "DIAMETER" in line and "=" in line:
+                        parts = line.split("=")
+                        diameter = float(parts[1].split()[0].strip(" ;"))
+                    # Identifica e extrai o valor de VOLUME, se presente na mesma linha que SURFACE
+                    if "VOLUME" in line and "=" in line:
+                        # Tratar a linha que pode ter "VOLUME" e "SURFACE" na mesma linha
+                        parts = line.split("VOLUME =")
+                        if len(parts) > 1:
+                            volume_part = parts[1].split()[0].strip(" ,;")
+                            volume = float(volume_part)
+                    # Identifica e extrai o valor de SMALLEST SIZE
+                    if "SMALLEST SIZE" in line and ":" in line:
+                        parts = line.split(":")
+                        smallest_size = float(parts[1].split()[0].strip(" ,;"))
         except Exception as e:
             print(f"Erro ao processar o arquivo {output_path}: {e}")
+
         return radius, surface, diameter, volume, smallest_size
 
     def run_radi(self, grid_path):
@@ -250,5 +271,5 @@ class GeometricDescriptors(ScoringPockets):
             # Limpeza: removendo arquivos temporários
             if os.path.exists(input_file):
                 os.remove(input_file)
-            if os.path.exists(output_file):
-                os.remove(output_file)
+            #if os.path.exists(output_file):
+                #os.remove(output_file)

@@ -58,11 +58,6 @@ class CavityFinder:
         self.output_path = output_path
         self.verbose_handler = verbose_handler
         self.fpocket_score = fpocket_score
-        self.hydro = {"ALA": -0.17, "ARG": -0.81, "ASN": -0.42, "ASP": -1.23, "CYS": 0.24,
-                "GLN": -2.02, "GLU": -0.58, "GLY": -0.01, "HIS": -0.96, "ILE": 0.31,
-                "LEU": 0.56, "LYS": -0.99, "MET": 0.23, "PHE": 1.13, "PRO": -0.45,
-                "SER": -0.13, "THR": -0.14, "TRP": 1.85, "TYR": 0.94, "VAL": -0.07,
-                "MME": 0.23, "MSE": 0.23, "UNK": -0.17}
     
     @staticmethod
     def extract_residues_from_pdb(cavity_file):
@@ -172,7 +167,7 @@ class CavityFinder:
         cavity_ids = {}
         current_id = 1
         comparisons = []
-        cavity_directories = ['fpocket', 'ligsite', 'pocketfinder', 'surfnet'] # List of directories corresponding to different cavity-detection programs
+        cavity_directories = ['fpocket', 'ligsite', 'surfnet'] # List of directories corresponding to different cavity-detection programs #retirei pocketfinder
         program_cavities = {program: [] for program in cavity_directories}
         for program in cavity_directories: # Loop through each program directory to gather cavity information
             program_dir = os.path.join(cavity_path, program)
@@ -317,7 +312,7 @@ class ConCavityFinder(CavityFinder):
                     temperature_factor = line[60:66].strip()
                     
                     # Format the line in the same way as the ATOM entry
-                    new_line = f"ATOM  {atom_index:5d}    H POC {residue_index:5d}     {x:7.3f} {y:7.3f} {z:7.3f}    {occupancy:6s}   {temperature_factor:6s}\n"
+                    new_line = f"ATOM  {atom_index:5d}    H POC {residue_index:5d}     {x:7.3f} {y:7.3f} {z:7.3f}    {occupancy:6s}{temperature_factor:6s}\n"
                     
                     # Write the new line to the file
                     pocket_file.write(new_line)
