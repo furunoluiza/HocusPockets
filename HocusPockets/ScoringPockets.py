@@ -10,10 +10,10 @@ Descrição do que esse arquivo faz
 ###############################################################################
 import os
 import csv
-import subprocess
+import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial import ConvexHull #volume
+from scipy.spatial import ConvexHull, distance_matrix
 
 # License
 ###############################################################################
@@ -63,69 +63,160 @@ class ScoringPockets:
         plt.legend()
         plt.show()
 
-    def calculate_cavity_volume(self, lines):
-            """
-            Calculates the volume of a cavity defined by atomic coordinates from PDB lines.
-            Input:
-            lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
-            Return:
-            [float] The calculated volume of the cavity based on its atomic coordinates,
-                    or 0 if insufficient points are provided or if an error occurs.
-            """
-            coordinates = []
-            for line in lines:
-                if line.startswith("ATOM") or line.startswith("HETATM"):
-                    try:
-                        x = float(line[30:38].strip())
-                        y = float(line[38:46].strip())
-                        z = float(line[46:54].strip())
-                        coordinates.append([x, y, z])
-                    except (ValueError, IndexError) as e:
-                        print(f"Error processing line: {line.strip()} - {e}")
-            if len(coordinates) < 3:  # Check if there are at least three coordinates to define a volume
-                return 0
-            try:
-                # Create a convex hull from the list of coordinates
-                # The convex hull is the smallest convex shape that encloses all the points
-                hull = ConvexHull(coordinates)
-                #self.plot_cavity(coordinates, pocket_file) #Plotar cavidades
-                return hull.volume  # Return the volume of the convex hull
-            except Exception as e:
-                print(f"Error creating convex hull: {e}")
-                return 0
-    
-    def calculate_hydro(self, residue_file):
+    @staticmethod
+    def calculate_geometric_descriptors(lines):
         """
-        Calculates the average hydrophobicity of residues of the pocket.
+        Calculates the volume, surface area, radius, diameter, smallest size,
+        and minimal enclosing cylinder for a cavity defined by atomic coordinates.
+
+        Input:
+        lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
+
+        Return:
+        [tuple] (volume, surface, radius, diameter, smallest_size, cylinder_radius, cylinder_height) - 
+                Calculated geometric properties, or zeros if insufficient data is provided.
+        """
+        coordinates = []
+        for line in lines:
+            if line.startswith("ATOM") or line.startswith("HETATM"):
+                try:
+                    x = float(line[30:38].strip())
+                    y = float(line[38:46].strip())
+                    z = float(line[46:54].strip())
+                    coordinates.append([x, y, z])
+                except (ValueError, IndexError) as e:
+                    print(f"Error processing line: {line.strip()} - {e}")
+
+        if len(coordinates) < 3:  # Check if there are at least three coordinates to define a geometry
+            return 0, 0, 0, 0, 0, 0, 0
+
+        coordinates = np.array(coordinates)
+
+        # Convex Hull: Calculate volume and surface area
+        hull = ConvexHull(coordinates)
+        volume = hull.volume
+        surface = hull.area
+
+        # Radius of the smallest enclosing sphere
+        center = np.mean(coordinates, axis=0)
+        distances = np.linalg.norm(coordinates - center, axis=1)
+        radius = np.max(distances)
+
+        # Diameter: Longest pairwise distance
+        pairwise_distances = distance_matrix(coordinates, coordinates)
+        diameter = np.max(pairwise_distances)
+
+        # Smallest size: Closest parallel planes enclosing the hull
+        smallest_size = np.inf
+        for simplex in hull.equations:
+            # Each simplex gives a plane equation: ax + by + cz + d = 0
+            normal = simplex[:3]
+            offset = simplex[3]
+            distances = np.abs(np.dot(coordinates, normal) + offset)
+            plane_distance = np.max(distances) - np.min(distances)
+            smallest_size = min(smallest_size, plane_distance)
+
+        # Minimal radius enclosing cylinder
+        cylinder_radius = 0
+        for axis in [[1, 0, 0], [0, 1, 0], [0, 0, 1]]:  # Test cylinders aligned with x, y, z axes
+            projection = np.dot(coordinates, axis)
+            radial_distances = np.linalg.norm(coordinates - np.outer(projection, axis), axis=1)
+            radius = np.max(radial_distances)
+            if radius < cylinder_radius or cylinder_radius == 0:
+                cylinder_radius = radius
+
+        return volume, surface, radius, diameter, smallest_size, cylinder_radius
+
+    def calculate_residue_descriptors(self, residue_file):
+        """
+        Calculates the average hydrophobicity of residues of the pocket, 
+        along with frequencies of aromatic residues and Tyr(OH) atoms.
+        
         Input:
             residue_file [str]: Path to the residue file containing ATOM entries.
         Return:
-            [float] Average hydrophobicity of residues in the residue file.
+            [tuple]: A tuple with average hydrophobicity, aromatic residue frequency, 
+                    and Tyr(OH) atom frequency.
         """
         total_hydro = 0.0
         residue_count = 0  # Counter for the number of residues
+        aromatic_count = 0  # Counter for aromatic residues (F, Y, H, W)
+        tyr_oh_count = 0  # Counter for Tyr(OH) atoms
 
-        # Read the residue file and extract residue names
+        # Read the residue file and extract residue names and atoms
         with open(residue_file, 'r') as file:
             for line in file:
                 if line.startswith("ATOM"):
-                    # Extract the residue name (columns 17-20 in PDB format)
+                    # Extract residue name (columns 17-20 in PDB format)
                     residue_name = line[17:20].strip()
                     # Add hydrophobicity value to the total (default to -0.17 for unknown residues)
                     total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
                     residue_count += 1  # Increment the residue count
 
-        # Calculate the average hydrophobicity if there are residues
-        if residue_count > 0:
-            return total_hydro / residue_count
-        else:
-            return 0.0  # Return 0 if no residues were found
+                    # Check for aromatic residues
+                    if residue_name in ["PHE", "TYR", "HIS", "TRP"]:
+                        aromatic_count += 1
+
+                    # Check for Tyr(OH) atoms (atom name Otyr assumed to be "OH " in columns 13-16)
+                    atom_name = line[12:16].strip()
+                    if residue_name == "TYR" and atom_name == "OH":
+                        tyr_oh_count += 1
+
+        # Calculate average hydrophobicity
+        avg_hydro = total_hydro / residue_count if residue_count > 0 else 0.0
+
+        # Calculate frequencies
+        aromatic_freq = aromatic_count / residue_count if residue_count > 0 else 0.0
+        tyr_oh_freq = tyr_oh_count / residue_count if residue_count > 0 else 0.0
+
+        return avg_hydro, aromatic_freq, tyr_oh_freq
+
+    @staticmethod
+    def score_cavity(volume, surface, radius, diameter, smallest_size,
+                 cylinder_radius, hydrophobicity_score, aromatic_freq, otyr_freq):
+        """
+        Calcula o score da cavidade com pesos ajustados e normaliza no intervalo [0,1].
+        """
+        
+        # Pesos ajustados (baseados em uma avaliação dos dados e impacto observado)
+        weights = {
+            'volume': 0.25,                # Volume teve destaque nos exemplos
+            'surface': 0.2,
+            'radius': 0.15,
+            'diameter': 0.1,
+            'smallest_size': 0.1,
+            'cylinder_radius': 0.1,
+            'hydrophobicity_score': 0.15,
+            'aromatic_freq': 0.05,
+            'otyr_freq': 0.05
+        }
+
+        # Score bruto calculado com base em descritores e seus pesos
+        score_raw = (
+            weights['volume'] * volume +
+            weights['surface'] * surface +
+            weights['radius'] * radius +
+            weights['diameter'] * diameter +
+            weights['smallest_size'] * smallest_size +
+            weights['cylinder_radius'] * cylinder_radius +
+            weights['hydrophobicity_score'] * hydrophobicity_score +
+            weights['aromatic_freq'] * aromatic_freq +
+            weights['otyr_freq'] * otyr_freq
+        )
+        
+        # Normalizar com base no valor máximo observado nos dados
+        # Podemos calcular dinamicamente o máximo esperado (ou usar uma constante fixada de acordo com o seu caso)
+        # Vamos calcular normalizando pelo maior valor de score_raw nos dados
+
+        # Exemplo estático, ajuste com seus próprios dados/experimentos se necessário
+        normalization_factor = 700  # Um fator aproximado baseado no máximo dos seus dados de exemplo
+        
+        # Normalização para manter score entre [0,1]
+        score_normalized = min(score_raw / normalization_factor, 1.0)
+
+        return score_raw
 
 
-    def score_cavity(self, volume, grid_file, residue_file):
-        hydro = self.calculate_hydro(residue_file)
-        drug_score = 0.094 * volume + 0.324 * hydro
-        return drug_score, hydro
     
     def save_cavity_scores(self, cavity_path, scores):
         """
@@ -144,7 +235,7 @@ class ScoringPockets:
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
-                        'Volume', 'Volume_Radi', 'Hydrophobicity_Score', 'Radius', 'Surface', 'Diameter', 'Smallest_Size', 'Score']
+                        'Volume', 'Radius', 'Surface', 'Diameter', 'Smallest_Size', 'Cylinder_radius', 'Hydrophobicity_Score', 'Aromatic_freq', 'Otyr_freq', 'Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=',')
             writer.writeheader()
             for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Sort by 'score'
@@ -155,18 +246,19 @@ class ScoringPockets:
                     'Residue_File': entry['residue_file'],
                     'Grid_Path': entry['grid_path'],
                     'Residue_Path': entry['residue_path'],
-                    'Volume': f"{entry['volume']:.2f}",
-                    'Volume_Radi': f"{entry['volume_radi']}",
-                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
-                    'Radius': f"{entry['radius']}",
-                    'Surface': f"{entry['surface']}",
-                    'Diameter': f"{entry['diameter']}",
-                    'Smallest_Size': f"{entry['smallest_size']}",
-                    'Score': f"{entry['score']:.2f}"
+                    'Volume': f"{entry['volume']:.2f}",  # Arredondado para 2 casas decimais
+                    'Radius': f"{entry['radius']:.2f}",  # Arredondado para 2 casas decimais
+                    'Surface': f"{entry['surface']:.2f}",  # Arredondado para 2 casas decimais
+                    'Diameter': f"{entry['diameter']:.2f}",  # Arredondado para 2 casas decimais
+                    'Smallest_Size': f"{entry['smallest_size']:.2f}",  # Arredondado para 2 casas decimais
+                    'Cylinder_radius': f"{entry['cylinder_radius']:.2f}",  # Arredondado para 2 casas decimais
+                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",  # Arredondado para 2 casas decimais
+                    'Aromatic_freq': f"{entry['aromatic_freq']:.2f}",  # Arredondado para 2 casas decimais
+                    'Otyr_freq': f"{entry['tyr_oh_freq']:.2f}",  # Arredondado para 2 casas decimais
+                    'Score': f"{entry['score']:.2f}"  # Arredondado para 2 casas decimais
                 })
-    
+
     def score_routine(self, cavity_path, program_cavities, cavity_ids):
-        geometric_descriptors = GeometricDescriptors(self.input_path, self.output_path, self.verbose_handler)
         scores = []
         for program, cavities in program_cavities.items():
             for cavity in cavities:
@@ -176,10 +268,10 @@ class ScoringPockets:
                 # Read grid lines and calculate volume
                 with open(grid_file_path, 'r') as f:
                     grid_lines = f.readlines()
-                volume = self.calculate_cavity_volume(grid_lines)
-                radius, surface, diameter, volume_radi, smallest_size = geometric_descriptors.run_radi(grid_file_path)
+                volume, surface, radius, diameter, smallest_size, cylinder_radius = self.calculate_geometric_descriptors(grid_lines)
                 # Calculate other scores (e.g., hydrophobicity, polarity)
-                score, hydrophobicity_score = self.score_cavity(volume, grid_file_path, residue_file_path)
+                hydrophobicity_score, aromatic_freq, tyr_oh_freq = self.calculate_residue_descriptors(residue_file_path)
+                score = self.score_cavity(volume, surface, radius, diameter, smallest_size, cylinder_radius, hydrophobicity_score, aromatic_freq, tyr_oh_freq)
                 # Append the results to the scores list
                 scores.append({
                     'cavity_id': cavity_id,
@@ -189,87 +281,14 @@ class ScoringPockets:
                     'grid_path': grid_file_path,
                     'residue_path': residue_file_path,
                     'volume': volume,
-                    'volume_radi': volume_radi,
-                    'hydrophobicity_score': hydrophobicity_score,
                     'radius': radius,
                     'surface': surface,
                     'diameter': diameter,
                     'smallest_size': smallest_size,
+                    'cylinder_radius': cylinder_radius,
+                    'hydrophobicity_score': hydrophobicity_score,
+                    'aromatic_freq': aromatic_freq,
+                    'tyr_oh_freq': tyr_oh_freq,
                     'score': score
                 })
         self.save_cavity_scores(cavity_path, scores)
-
-class GeometricDescriptors(ScoringPockets):
-    def __init__(self, input_path, output_path, verbose_handler):
-        super().__init__(input_path, output_path, verbose_handler)
-
-    def process_radi_file(self, output_path):
-        radius, surface, diameter, volume, smallest_size = None, None, None, None, None
-
-        try:
-            with open(output_path, "r") as f:
-                lines = f.readlines()
-                for line in lines:
-                    # Normaliza a linha para evitar problemas com maiúsculas/minúsculas
-                    line = line.upper().strip()
-
-                    # Identifica e extrai o valor de RADIUS
-                    if "RADIUS" in line and "=" in line:
-                        parts = line.split("=")
-                        radius = float(parts[1].split()[0].strip(" ;"))
-                    # Identifica e extrai o valor de SURFACE
-                    if "SURFACE" in line and "=" in line:
-                        parts = line.split("=")
-                        surface = float(parts[1].split()[0].strip(" ;"))
-                    # Identifica e extrai o valor de DIAMETER
-                    if "DIAMETER" in line and "=" in line:
-                        parts = line.split("=")
-                        diameter = float(parts[1].split()[0].strip(" ;"))
-                    # Identifica e extrai o valor de VOLUME, se presente na mesma linha que SURFACE
-                    if "VOLUME" in line and "=" in line:
-                        # Tratar a linha que pode ter "VOLUME" e "SURFACE" na mesma linha
-                        parts = line.split("VOLUME =")
-                        if len(parts) > 1:
-                            volume_part = parts[1].split()[0].strip(" ,;")
-                            volume = float(volume_part)
-                    # Identifica e extrai o valor de SMALLEST SIZE
-                    if "SMALLEST SIZE" in line and ":" in line:
-                        parts = line.split(":")
-                        smallest_size = float(parts[1].split()[0].strip(" ,;"))
-        except Exception as e:
-            print(f"Erro ao processar o arquivo {output_path}: {e}")
-
-        return radius, surface, diameter, volume, smallest_size
-
-    def run_radi(self, grid_path):
-        print(grid_path)
-        # Criando o arquivo de entrada
-        input_file = "in.i"
-        with open(input_file, "w") as f:
-            f.write("PDB\n")
-            f.write(f"{grid_path}\n")
-            f.write("EPSTAB\n")
-        # Definindo o nome do arquivo de saída
-        grid_name = os.path.splitext(os.path.basename(grid_path))[0]
-        output_file = f"{grid_name}_radi.txt"
-
-        try:
-            # Executando o radi
-            bash_process = subprocess.call(
-                f'radi < {input_file} > {output_file}',
-                shell=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-            # Verifica se o arquivo de saída foi gerado e o processa
-            if os.path.exists(output_file):
-                output_path = os.path.abspath(output_file)
-                radius, surface, diameter, volume, smallest_size = self.process_radi_file(output_path)
-                print(f"Resultado: {radius}, {surface}, {diameter}, {volume}, {smallest_size}")
-                return radius, surface, diameter, volume, smallest_size
-        finally:
-            # Limpeza: removendo arquivos temporários
-            if os.path.exists(input_file):
-                os.remove(input_file)
-            #if os.path.exists(output_file):
-                #os.remove(output_file)

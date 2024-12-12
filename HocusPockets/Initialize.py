@@ -61,7 +61,7 @@ epilogue = tw.dedent("""
 
 # Set arguments
 def args_parse():
-    parser = argparse.ArgumentParser(prog='WhichCav',
+    parser = argparse.ArgumentParser(prog='HocusPockets',
                                     formatter_class=argparse.RawDescriptionHelpFormatter,
                                     description=description,
                                     epilog=epilogue)
