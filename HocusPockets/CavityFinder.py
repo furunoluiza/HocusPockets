@@ -47,12 +47,6 @@ class CavityFinder:
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
         Return:
             Nothing.
-        
-        Hydropobicity values retrieved from:
-        WIMLEY, W. C.; WHITE, S. H. Experimentally determined hydrophobicity scale for
-        proteins at membrane interfaces. Nature Structural Biology, 1996.
-        * B(ASX) takes the same value as D(ASP)
-        * Z(GLX) takes the same value as E(GLU)
         """
         self.input_path = input_path
         self.output_path = output_path

@@ -34,6 +34,24 @@ E-mail address: luizafuruno@ufrj.br
 
 class ScoringPockets:
     def __init__(self, input_path, output_path, verbose_handler):
+        """
+        Initializes the CavityFinder object.
+        
+        Parameters:
+        input_path      (str)  - Path to the input file or directory containing the protein structure.
+        output_path     (str)  - Path where the output will be saved.
+        verbose_handler (bool) - Object to handle verbose output.
+        
+        Returns:
+        None
+        
+        Hydrophobicity values are defined based on:
+        WIMLEY, W. C.; WHITE, S. H. Experimentally determined hydrophobicity scale for 
+        proteins at membrane interfaces. Nature Structural Biology, 1996.
+        
+        * B (ASX) is assigned the same value as D (ASP).
+        * Z (GLX) is assigned the same value as E (GLU).
+        """
         self.input_path = input_path
         self.output_path = output_path
         self.verbose_handler = verbose_handler
@@ -73,7 +91,7 @@ class ScoringPockets:
         lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
 
         Return:
-        [tuple] (volume, surface, radius, diameter, smallest_size, cylinder_radius, cylinder_height) - 
+        [tuple] (volume, surface, radius, diameter, smallest_size, cylinder_radius) - 
                 Calculated geometric properties, or zeros if insufficient data is provided.
         """
         coordinates = []
@@ -87,36 +105,56 @@ class ScoringPockets:
                 except (ValueError, IndexError) as e:
                     print(f"Error processing line: {line.strip()} - {e}")
 
-        if len(coordinates) < 3:  # Check if there are at least three coordinates to define a geometry
-            return 0, 0, 0, 0, 0, 0, 0
+        if len(coordinates) < 4:  # At least four points are needed for a valid convex hull
+            return 0, 0, 0, 0, 0, 0
 
         coordinates = np.array(coordinates)
 
-        # Convex Hull: Calculate volume and surface area
+        # Compute Convex Hull
         hull = ConvexHull(coordinates)
         volume = hull.volume
         surface = hull.area
 
-        # Radius of the smallest enclosing sphere
+        # Compute radius of the smallest enclosing sphere
         center = np.mean(coordinates, axis=0)
         distances = np.linalg.norm(coordinates - center, axis=1)
         radius = np.max(distances)
 
-        # Diameter: Longest pairwise distance
+        # Compute diameter (longest pairwise distance)
         pairwise_distances = distance_matrix(coordinates, coordinates)
         diameter = np.max(pairwise_distances)
 
-        # Smallest size: Closest parallel planes enclosing the hull
+        # Compute smallest size (distance between closest parallel enclosing planes)
         smallest_size = np.inf
-        for simplex in hull.equations:
-            # Each simplex gives a plane equation: ax + by + cz + d = 0
-            normal = simplex[:3]
-            offset = simplex[3]
-            distances = np.abs(np.dot(coordinates, normal) + offset)
-            plane_distance = np.max(distances) - np.min(distances)
-            smallest_size = min(smallest_size, plane_distance)
+        best_planes = None
 
-        # Minimal radius enclosing cylinder
+        for simplex in hull.simplices:
+            # Get the three vertices forming the triangular face
+            p1, p2, p3 = coordinates[simplex]
+
+            # Compute normal vector of the triangular face
+            normal = np.cross(p2 - p1, p3 - p1)
+            normal /= np.linalg.norm(normal)  # Normalize the normal vector
+
+            # Compute plane equation: ax + by + cz + d = 0
+            d = -np.dot(normal, p1)
+
+            # Compute distances of all points from this plane
+            signed_distances = np.dot(coordinates, normal) + d
+
+            # Identify the extreme points along the normal direction
+            min_distance = np.min(signed_distances)
+            max_distance = np.max(signed_distances)
+
+            # Compute the plane separation distance
+            plane_distance = max_distance - min_distance
+
+            # Check if this is the smallest valid enclosing pair of planes
+            if plane_distance < smallest_size:
+                smallest_size = plane_distance
+                best_planes = (simplex, normal, plane_distance)
+
+        # Compute minimal enclosing cylinder radius
         cylinder_radius = 0
         for axis in [[1, 0, 0], [0, 1, 0], [0, 0, 1]]:  # Test cylinders aligned with x, y, z axes
             projection = np.dot(coordinates, axis)
