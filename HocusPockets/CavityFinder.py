@@ -555,10 +555,7 @@ class FpocketFinder(CavityFinder):
         pockets_paths = []
         for pocket in filtered_pockets: # Iterate over each druggable pocket and construct its file path based on the file type
             pocket_number = pocket['pocket_number']
-            if extension == ".cif": #Se eu transformar os arquivos pra .pdb não vai precisar
-                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
-            else:
-                pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
+            pocket_path = os.path.join(dir_name, f"{base_name}_out", "pockets", f"pocket{pocket_number}_vert.pqr")
             pocket['new_path'] = pocket_path
             pockets_paths.append(pocket)
         return pockets_paths
@@ -620,7 +617,7 @@ class FpocketFinder(CavityFinder):
         protein_outputs = []
         for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
             for file in files:
-                if file.endswith(('.pdb', '.cif')):
+                if file.endswith(('.pdb')):
                     input_file = os.path.join(root, file)
                     protein_name = os.path.splitext(os.path.basename(input_file))[0]
                     protein_output_dir = os.path.join(self.output_path, protein_name)

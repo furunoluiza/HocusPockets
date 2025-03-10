@@ -71,7 +71,7 @@ def args_parse():
         required=True, 
         action="store",
         dest="input_path", 
-        metavar = "",
+        metavar ="",
         help='Path to a file or directory contaning a protein structure in .pdb format (required!)'
     )
     parser.add_argument(
@@ -137,14 +137,14 @@ def check_concavity_installed(verbose_handler):
 # Verify input
 def verify_input(args):
     if os.path.isfile(args.input_path):
-        assert args.input_path.endswith(('.pdb', '.cif')), clrs['r'] + f'The input file "{args.input_file}" must be a .pdb or a .cif extension.' + clrs['n']
+        assert args.input_path.endswith(('.pdb')), clrs['r'] + f'The input file "{args.input_file}" must be a .pdb extension.' + clrs['n']
     elif os.path.isdir(args.input_path):
         files = os.listdir(args.input_path)
-        pdb_cif_files = [f for f in files if f.endswith(('.pdb', '.cif'))]
-        other_files = [f for f in files if not f.endswith(('.pdb', '.cif'))]
-        assert len(pdb_cif_files) > 0, clrs['r'] + f'The directory "{args.input_path}" does not contain any .pdb or .cif files.' + clrs['n']
+        pdb_files = [f for f in files if f.endswith(('.pdb'))]
+        other_files = [f for f in files if not f.endswith(('.pdb'))]
+        assert len(pdb_files) > 0, clrs['r'] + f'The directory "{args.input_path}" does not contain any .pdb files.' + clrs['n']
         for file in other_files:
-            print(clrs['y'] + f'Warning: File "{file}" is not a .pdb or .cif. Skipping...' + clrs['n'])
+            print(clrs['y'] + f'Warning: File "{file}" is not a .pdb. Skipping...' + clrs['n'])
     else:
         assert False, clrs['r'] + f'The input path "{args.input_path}" is neither a file nor a directory.' + clrs['n']
     if args.output:
