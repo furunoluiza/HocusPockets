@@ -14,7 +14,6 @@ import pandas as pd
 import numpy as np
 from scipy.spatial import ConvexHull #volume
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from Initialize import *
 from ScoringPockets import *
 
@@ -37,7 +36,7 @@ E-mail address: luizafuruno@ufrj.br
 '''
 
 class CavityFinder:
-    def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
+    def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
         """
         Initializes the CavityFinder object.
         Input:
@@ -45,12 +44,16 @@ class CavityFinder:
         output_path     [str]                - Path where the output will be saved.
         verbose_handler [bool]               - Object to handle verbose output.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
+        distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
+        similarity      [float] DEFAULT: 0.6 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
         Return:
             Nothing.
         """
         self.input_path = input_path
         self.output_path = output_path
         self.verbose_handler = verbose_handler
+        self.distance = distance
+        self.similarity = similarity
         self.fpocket_score = fpocket_score
     
     @staticmethod
@@ -86,7 +89,7 @@ class CavityFinder:
             return False
         intersection = residues_a.intersection(residues_b) # Calculate the intersection of the two sets of residues.
         similarity = len(intersection) / max(len(residues_a), len(residues_b)) # Calculate the similarity as the size of the intersection divided by the size of the larger set.
-        return similarity >= 0.6 #Ajustar? #salvar a equivalência para determinar esse valor
+        return similarity >= self.similarity
 
     def plot_hull_and_residues(self, hull_points, residue_points, cavity_index, method):
         """
@@ -206,9 +209,9 @@ class CavityFinder:
         Return:
             Nothing.
         """
-        fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.fpocket_score)
+        fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_out = fpocket_finder.process_directory()
-        concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.verbose_handler, self.fpocket_score)
+        concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.process_directory()
         for cavity in fpocket_out:
             self.compare_cavities(cavity)
@@ -223,9 +226,9 @@ class CavityFinder:
         """
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
         cavities_output_dir = os.path.join(protein_output_dir, base_name)
-        fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.fpocket_score)
+        fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_file()
-        concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.fpocket_score)
+        concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path)
         self.compare_cavities(cavities_output_dir)
     
@@ -246,18 +249,20 @@ class CavityFinder:
             self.find_cavities_in_file(protein_output_dir)
 
 class ConCavityFinder(CavityFinder):
-    def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
+    def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
         """
         Initializes the ConCavity object, which is a subclass of Cavity.
         Input:
         input_path      [str]                - Path to the input file or directory containing the protein structure.
         output_path     [str]                - Path where the Fpocket output will be saved.
         verbose_handler [bool]               - Object to handle verbose output.
+        distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
+        similarity      [float] DEFAULT: 0.6 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
         Return:
             Nothing.
         """
-        super().__init__(input_path, output_path, verbose_handler, fpocket_score)
+        super().__init__(input_path, output_path, verbose_handler, distance, similarity, fpocket_score)
     
     def process_cavities(self, pockets_info, output_path, method):
         """
@@ -323,7 +328,7 @@ class ConCavityFinder(CavityFinder):
                 close_residues = set()  # Set to store unique residues
                 for residue_id, center in residue_centers.items():
                     for hull_point in hull.points:
-                        if np.linalg.norm(center - hull_point) <= 6.0:  # Distance threshold
+                        if np.linalg.norm(center - hull_point) <= self.distance:  # Distance threshold
                             close_residues.add(residue_id)
                 # Collect ATOM lines of all atoms forming the identified residues
                 close_residue_lines = [line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues]
@@ -418,18 +423,20 @@ class ConCavityFinder(CavityFinder):
                     self.run_concavity(input_file)
 
 class FpocketFinder(CavityFinder):
-    def __init__(self, input_path, output_path, verbose_handler, fpocket_score):
+    def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
        """
         Initializes the FpocketFinder object, which is a subclass of Cavity.
         Input:
         input_path      [str]                - Path to the input file or directory containing the protein structure.
         output_path     [str]                - Path where the Fpocket output will be saved.
         verbose_handler [bool]               - Object to handle verbose output.
+        distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
+        similarity      [float] DEFAULT: 0.6 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities based on the druggability score.
         Return:
             Nothing.
         """
-       super().__init__(input_path, output_path, verbose_handler, fpocket_score)
+       super().__init__(input_path, output_path, verbose_handler, distance, similarity, fpocket_score)
 
     def run_fpocket(self, input_file):
         """
@@ -519,7 +526,7 @@ class FpocketFinder(CavityFinder):
             close_residues = set()
             for residue_id, center in residue_centers.items():
                 for hull_point in hull.points:
-                    if np.linalg.norm(center - hull_point) <= 6.0:  # Distance threshold
+                    if np.linalg.norm(center - hull_point) <= self.distance:  # Distance threshold
                         close_residues.add(residue_id)
             # Collect ATOM lines of all atoms forming the identified residues
             close_residue_lines = [line for line in residue_lines if f"{line[17:20]} {line[21]} {line[22:26].strip()}" in close_residues]

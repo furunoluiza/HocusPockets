@@ -86,11 +86,26 @@ def args_parse():
         help='Enables verbose mode'
     )
     parser.add_argument(
+        '--distance',
+        type=float,
+        default=6.0,
+        metavar="",
+        help='Maximum distance between grid points and residues (default: 6.0)'
+    )
+    parser.add_argument(
+        '--similarity',
+        type=float,
+        default=0.6,
+        metavar="",
+        choices=[x / 100 for x in range(1, 101)],
+        help='Minimum residue similarity threshold between pockets (default: 0.6)'
+    )
+    parser.add_argument(
         '--fpocket-score',
         type=float,
         default=0.5,
         metavar="",
-        help='Minimum druggability score for Fpocket (default: 0.5). Only pockets with a score greater than this will be considered.'
+        help='Minimum druggability score for Fpocket (default: 0.5).'
     )
     args = parser.parse_args()
     print(description)

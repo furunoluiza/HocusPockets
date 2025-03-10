@@ -55,7 +55,7 @@ def main():
     check_concavity_installed(verbose_handler)
     verify_input(args)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
-    cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.fpocket_score)
+    cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.distance, args.similarity, args.fpocket_score)
     cavity_finder.find_cavities()
     print(clrs['g'] + "HocusPockets has completed its execution." + clrs['n'])
     verbose_handler.close()
