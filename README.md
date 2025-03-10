@@ -1,4 +1,4 @@
-<p align="center"> <img src="HocusPockets.png" height="110" alt="HocusPockets" /> </p>
+<p align="center"> <img src="HocusPockets_logo.png" height="110" alt="HocusPockets" /> </p>
 
 # HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
