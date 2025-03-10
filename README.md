@@ -1,3 +1,5 @@
+<p align="center"> <img src="HocusPockets.png" height="110" alt="MARVEL" /> </p>
+
 # HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
 HocusPockets is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
