@@ -11,13 +11,14 @@ Descrição do que esse arquivo faz
 import os
 from Initialize import *
 from CavityFinder import *
+from Reactivity import *
 
 # License
 ###############################################################################
 '''
 HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Authors: Machado, L.F.; Torres, P.H.M.
+Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
 
 [Federal University of Rio de Janeiro]
 
@@ -55,6 +56,8 @@ def main():
     check_concavity_installed(verbose_handler)
     verify_input(args)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
+    reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler)
+    reactivity_descriptors.find_reactivity()
     cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.distance, args.similarity, args.fpocket_score)
     cavity_finder.find_cavities()
     print(clrs['g'] + "HocusPockets has completed its execution." + clrs['n'])

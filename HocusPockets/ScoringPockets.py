@@ -20,7 +20,7 @@ from scipy.spatial import ConvexHull, distance_matrix
 '''
 HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Authors: Machado, L.F.; Torres, P.H.M.
+Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
 
 [Federal University of Rio de Janeiro]
 
@@ -267,9 +267,11 @@ class ScoringPockets:
             Nothing.
         """
         # Define output path early
-        protein_dir = os.path.join(self.output_path, os.path.basename(cavity_path))
-        os.makedirs(protein_dir, exist_ok=True)
-        output_file = os.path.join(protein_dir, "cavity_scores.csv")
+        #protein_dir = os.path.join(self.output_path, os.path.basename(os.path.dirname(cavity_path)))
+        #os.makedirs(protein_dir, exist_ok=True)
+        #print(f'7: {protein_dir}')
+        output_file = os.path.join(cavity_path, "cavity_scores.csv")
+        print(f'csv: {output_file}')
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
