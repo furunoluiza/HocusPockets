@@ -5,47 +5,11 @@
 #                                                     +:+ +:+         +:+      #
 #    By: lfuruno- <lfuruno-@student.42.rio>         +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
-#    Created: 0001/01/01 00:00:00 by                   #+#    #+#              #
-#    Updated: 2024/10/28 17:14:19 by lfuruno-         ###   ########.fr        #
+#    Created: Invalid date        by           :       #+#    #+#              #
+#    Updated: 2025/03/11 22:05:13 by lfuruno-         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
-KEYWDS    HYDROLASE, ACID PROTEINASE, HYDROLASE-HYDROLASE INHIBITOR COMPLEX     
-EXPDTA    X-RAY DIFFRACTION                                                     
-AUTHOR    C.-H.CHANG                                                            
-REVDAT   6   29-NOV-17 1HVR    1       HELIX                                    
-REVDAT   5   29-FEB-12 1HVR    1       JRNL   VERSN                             
-REVDAT   4   24-FEB-09 1HVR    1       VERSN                                    
-REVDAT   3   01-APR-03 1HVR    1       JRNL                                     
-REVDAT   2   15-MAY-95 1HVR    1       REMARK                                   
-REVDAT   1   26-JAN-95 1HVR    0                                                
-JRNL        AUTH   P.Y.LAM,P.K.JADHAV,C.J.EYERMANN,C.N.HODGE,Y.RU,L.T.BACHELER, 
-JRNL        AUTH 2 J.L.MEEK,M.J.OTTO,M.M.RAYNER,Y.N.WONG,C.-H.CHANG,P.WEBER,    
-JRNL        AUTH 3 D.A.JACKSON,T.R.SHARPE,S.ERICKSON-VIITANEN                   
-JRNL        TITL   RATIONAL DESIGN OF POTENT, BIOAVAILABLE, NONPEPTIDE CYCLIC   
-JRNL        TITL 2 UREAS AS HIV PROTEASE INHIBITORS.                            
-JRNL        REF    SCIENCE                       V. 263   380 1994              
-JRNL        REFN                   ISSN 0036-8075                               
-JRNL        PMID   8278812                                                      
-REMARK   2                                                                      
-REMARK   2 RESOLUTION.    1.80 ANGSTROMS.                                       
-REMARK   3                                                                      
-REMARK   3 REFINEMENT.                                                          
-REMARK   3   PROGRAM     : X-PLOR                                               
-REMARK   3   AUTHORS     : BRUNGER                                              
-REMARK   3                                                                      
-REMARK   3  DATA USED IN REFINEMENT.                                            
-REMARK   3   RESOLUTION RANGE HIGH (ANGSTROMS) : 1.80                           
-REMARK   3   RESOLUTION RANGE LOW  (ANGSTROMS) : NULL                           
-REMARK   3   DATA CUTOFF            (SIGMA(F)) : 2.000                          
-REMARK   3   DATA CUTOFF HIGH         (ABS(F)) : NULL                           
-REMARK   3   DATA CUTOFF LOW          (ABS(F)) : NULL                           
-REMARK   3   COMPLETENESS (WORKING+TEST)   (%) : NULL                           
-REMARK   3   NUMBER OF REFLECTIONS             : 12695                          
-REMARK   3                                                                      
-REMARK   3  FIT TO DATA USED IN REFINEMENT.                                     
-REMARK   3   CROSS-VALIDATION METHOD          : NULL                            
-REMARK   3   FREE R VALUE TEST SET SELECTION  : NULL                            
 REMARK   3   R VALUE            (WORKING SET) : 0.193                           
 REMARK   3   FREE R VALUE                     : NULL                            
 REMARK   3   FREE R VALUE TEST SET SIZE   (%) : NULL                            

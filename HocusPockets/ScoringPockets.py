@@ -267,11 +267,8 @@ class ScoringPockets:
             Nothing.
         """
         # Define output path early
-        #protein_dir = os.path.join(self.output_path, os.path.basename(os.path.dirname(cavity_path)))
-        #os.makedirs(protein_dir, exist_ok=True)
-        #print(f'7: {protein_dir}')
-        output_file = os.path.join(cavity_path, "cavity_scores.csv")
-        print(f'csv: {output_file}')
+        protein_name = os.path.basename(os.path.dirname(cavity_path))
+        output_file = os.path.join(cavity_path, f"{protein_name}_cavity_scores.csv")
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',

@@ -78,7 +78,6 @@ class Reactivity:
             mop.write(header)  # Escreve o cabeçalho
             mop.write("\n".join(atom_lines))  # Escreve as linhas do PDB
 
-        print(f"Arquivo .mop criado: {mopac_file}")
         return mopac_file
 
     def process_directory(self):
@@ -96,7 +95,9 @@ class Reactivity:
                     protein_name = os.path.splitext(os.path.basename(input_file))[0]
                     protein_output_dir = os.path.join(self.output_path, protein_name)
                     os.makedirs(protein_output_dir, exist_ok=True)
-                    self.create_mopac_file(input_file, protein_output_dir)
+                    reactivity_dir = os.path.join(protein_output_dir, "reactivity")
+                    os.makedirs(reactivity_dir, exist_ok=True)
+                    self.create_mopac_file(input_file, reactivity_dir)
 
     def process_file(self, protein_output_dir):
         """
@@ -106,10 +107,9 @@ class Reactivity:
         Return:
             Nothing.
         """
-        base_name = os.path.splitext(os.path.basename(self.input_path))[0]
-        protein_output_dir = os.path.join(self.output_path, base_name)
-        os.makedirs(protein_output_dir, exist_ok=True)
-        self.create_mopac_file(self.input_path, protein_output_dir)
+        reactivity_dir = os.path.join(protein_output_dir, "reactivity")
+        os.makedirs(reactivity_dir, exist_ok=True)
+        self.create_mopac_file(self.input_path, reactivity_dir)
         
     
     def find_reactivity(self):
