@@ -44,9 +44,91 @@ class Reactivity:
         self.output_path = output_path
         self.verbose_handler = verbose_handler
 
-    import os
+    @staticmethod
+    def run_primordia(primordia_file, primordia_dir):
+        """
+        Runs PRIMoRDiA on the given input file.
 
-    def create_mopac_file(self, input_file, protein_output_dir):
+        Input:
+            primordia_file [str] - Path to the PRIMoRDiA input file.
+            primordia_dir [str]  - Directory where PRIMoRDiA outputs will be saved.
+
+        Return:
+            Nothing.
+        """
+        # Obtém o nome base do arquivo sem extensão
+        #protein_name = os.path.splitext(os.path.basename(primordia_file))[0]
+
+        # Comando para executar o PRIMoRDiA
+        command = ["PRIMoRDIA_1.25v", "-f", primordia_file, "-verbose"]
+
+        # Garante que o diretório de saída existe
+        os.makedirs(primordia_dir, exist_ok=True)
+
+        # Redireciona a saída para um arquivo de log dentro do diretório de saída
+        #log_file = os.path.join(primordia_dir, f"{protein_name}_primordia.log")
+
+        with open(os.devnull, "w") as DEVNULL:
+            return_code = subprocess.call(command, cwd=primordia_dir, stdout=DEVNULL, stderr=DEVNULL)
+
+        assert return_code == 0, f"Error running PRIMoRDiA on {primordia_file}."
+    
+
+    @staticmethod
+    def create_primordia_file(input_path, output_aux, primordia_dir):
+        """
+        Creates a PRIMoRDiA input file inside the 'primordia' directory within the reactivity directory.
+
+        Input:
+            input_path [str]     - Path to the input PDB file.
+            output_aux [str]     - Path to the MOPAC .aux output file.
+            reactivity_dir [str] - Directory where PRIMoRDiA outputs will be stored.
+
+        Return:
+            primordia_file [str] - Path to the created PRIMoRDiA input file.
+        """
+        # Obtém o nome da proteína sem extensão
+        protein_name = os.path.splitext(os.path.basename(input_path))[0]
+
+        # Garante que os caminhos são absolutos e formatados corretamente
+        abs_input_path = os.path.abspath(input_path)
+        
+        # Caminho do arquivo de entrada do PRIMoRDiA
+        primordia_file = os.path.join(primordia_dir, f"{protein_name}_primordia.input")
+
+        # Escreve o conteúdo no arquivo
+        with open(primordia_file, "w") as f:
+            f.write("#RT normal\n")
+            f.write("#PR eband 3 Rscript\n")
+            f.write(f"3 {output_aux} none 0 0 {abs_input_path} mopac 0 0 0 0 EW\n")
+
+        return primordia_file
+
+    @staticmethod
+    def run_mopac(mopac_file, reactivity_dir):
+        """
+        Runs MOPAC on the given .mop file and saves the output in the reactivity directory.
+
+        Input:
+            mopac_file [str]     - Path to the .mop input file.
+            reactivity_dir [str] - Directory where MOPAC outputs will be saved.
+
+        Return:
+            Nothing.
+        """
+        base_name = os.path.splitext(os.path.basename(mopac_file))[0]
+        output_aux = os.path.join(reactivity_dir, f"{base_name}.aux")
+        output_out = os.path.join(reactivity_dir, f"{base_name}.out")
+        process = subprocess.Popen(['mopac', mopac_file], cwd=reactivity_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Aguarda a criação dos arquivos enquanto o processo está rodando
+        while process.poll() is None:  # process.poll() retorna None se o processo ainda estiver rodando
+            if os.path.exists(output_aux) and os.path.exists(output_out):
+                process.terminate()  # Encerra o processo se os arquivos foram criados
+                return output_aux
+        
+    @staticmethod
+    def create_mopac_file(input_file, protein_output_dir):
         """
         Cria um arquivo .mop a partir de um arquivo PDB, incluindo um cabeçalho específico.
         
@@ -61,7 +143,7 @@ class Reactivity:
         mopac_file = os.path.join(protein_output_dir, os.path.basename(input_file).replace(".pdb", ".mop"))
         
         # Cabeçalho do arquivo .mop
-        header = """PM7 ALLVECS VECTOR AUX LARGE MOZYME eps=78.4 PDB 1SCF
+        header = """PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4
         
         
 """
@@ -96,8 +178,12 @@ class Reactivity:
                     protein_output_dir = os.path.join(self.output_path, protein_name)
                     os.makedirs(protein_output_dir, exist_ok=True)
                     reactivity_dir = os.path.join(protein_output_dir, "reactivity")
-                    os.makedirs(reactivity_dir, exist_ok=True)
-                    self.create_mopac_file(input_file, reactivity_dir)
+                    mopac_dir = os.path.join(reactivity_dir, "mopac")
+                    os.makedirs(mopac_dir, exist_ok=True)
+                    mopac_file = self.create_mopac_file(input_file, mopac_dir)
+                    output_aux = self.run_mopac(mopac_file, mopac_dir)
+                    primordia_file = self.create_primordia_file(input_file, output_aux, reactivity_dir)
+                    
 
     def process_file(self, protein_output_dir):
         """
@@ -108,8 +194,14 @@ class Reactivity:
             Nothing.
         """
         reactivity_dir = os.path.join(protein_output_dir, "reactivity")
-        os.makedirs(reactivity_dir, exist_ok=True)
-        self.create_mopac_file(self.input_path, reactivity_dir)
+        mopac_dir = os.path.join(reactivity_dir, "mopac")
+        primordia_dir = os.path.join(reactivity_dir, "primordia")
+        os.makedirs(mopac_dir, exist_ok=True)
+        os.makedirs(primordia_dir, exist_ok=True)
+        mopac_file = self.create_mopac_file(self.input_path, mopac_dir)
+        output_aux = self.run_mopac(mopac_file, mopac_dir)
+        primordia_file = self.create_primordia_file(self.input_path, output_aux, primordia_dir)
+        self.run_primordia(primordia_file, primordia_dir)
         
     
     def find_reactivity(self):

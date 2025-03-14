@@ -451,7 +451,7 @@ class FpocketFinder(CavityFinder):
         """
         with open(os.devnull, 'w') as devnull:
             return_code = subprocess.call(['fpocket', '-f' + input_file], stdout=devnull, stderr=devnull)
-        assert return_code == 0, clrs['r'] + f'Problem running fpocket tool' + clrs['n']
+        assert return_code == 0, clrs['r'] + f'Problem running fpocket on {input_file}' + clrs['n']
 
     @staticmethod
     def parse_info(pockets_info):
