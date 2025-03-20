@@ -66,8 +66,7 @@ def args_parse():
                                     description=description,
                                     epilog=epilogue)
     parser.add_argument(
-        '-i',
-        '--input',
+        '-i', '--input',
         required=True, 
         action="store",
         dest="input_path", 
@@ -75,8 +74,7 @@ def args_parse():
         help='Path to a file or directory contaning a protein structure in .pdb format (required!)'
     )
     parser.add_argument(
-        '-o',
-        '--output',
+        '-o', '--output',
         metavar="",
         help='Defines the output path'
     )

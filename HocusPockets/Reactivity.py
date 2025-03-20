@@ -60,18 +60,21 @@ class Reactivity:
         #protein_name = os.path.splitext(os.path.basename(primordia_file))[0]
 
         # Comando para executar o PRIMoRDiA
-        command = ["PRIMoRDIA_1.25v", "-f", primordia_file, "-verbose"]
+        command = ["/opt/PRIMoRDiA1.0v/PRIMoRDiA_1.25v", "-f", primordia_file, "-verbose"]
 
         # Garante que o diretório de saída existe
         os.makedirs(primordia_dir, exist_ok=True)
 
         # Redireciona a saída para um arquivo de log dentro do diretório de saída
-        #log_file = os.path.join(primordia_dir, f"{protein_name}_primordia.log")
+        log_file = os.path.join(primordia_dir, f"primordia.log")
 
-        with open(os.devnull, "w") as DEVNULL:
-            return_code = subprocess.call(command, cwd=primordia_dir, stdout=DEVNULL, stderr=DEVNULL)
+        with open(os.devnull, "w") as log:
+            return_code = subprocess.call(command, cwd=primordia_dir, stdout=log, stderr=log)
 
-        assert return_code == 0, f"Error running PRIMoRDiA on {primordia_file}."
+        if return_code != 0:
+            raise RuntimeError(f"Error running PRIMoRDiA on {primordia_file}. Check {log_file} for details.")
+
+        print(f"PRIMoRDiA ran successfully. Log saved at {log_file}")
     
 
     @staticmethod
@@ -119,13 +122,17 @@ class Reactivity:
         base_name = os.path.splitext(os.path.basename(mopac_file))[0]
         output_aux = os.path.join(reactivity_dir, f"{base_name}.aux")
         output_out = os.path.join(reactivity_dir, f"{base_name}.out")
-        process = subprocess.Popen(['mopac', mopac_file], cwd=reactivity_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        output_err = os.path.join(reactivity_dir, f"{base_name}.err")
+
+        with open(output_err, 'w') as f:
+            process = subprocess.Popen(['/opt/mopac/MOPAC2016.exe', mopac_file], cwd=reactivity_dir, stdout=subprocess.DEVNULL, stderr=f)
 
         # Aguarda a criação dos arquivos enquanto o processo está rodando
-        while process.poll() is None:  # process.poll() retorna None se o processo ainda estiver rodando
+        '''while process.poll() is None:  # process.poll() retorna None se o processo ainda estiver rodando
             if os.path.exists(output_aux) and os.path.exists(output_out):
                 process.terminate()  # Encerra o processo se os arquivos foram criados
-                return output_aux
+                return output_aux'''
+        return output_aux
         
     @staticmethod
     def create_mopac_file(input_file, protein_output_dir):
