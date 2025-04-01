@@ -132,6 +132,34 @@ def check_concavity_installed(verbose_handler):
         print("Error: 'Concavity' is not installed. Please install it and try again.")
         sys.exit(1)
 
+def check_primordia_installed(verbose_handler):
+    try:
+        subprocess.run(['/opt/PRIMoRDiA_1.25v_LINUX64', '-v'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        verbose_handler.output("'PRIMoRDIA' is installed and accessible.")
+    except subprocess.CalledProcessError:
+        print("Error: 'PRIMoRDIA' is installed but could not be executed.")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("Error: 'PRIMoRDIA' is not installed. Please install it and try again.")
+        sys.exit(1)
+
+def check_mopac_installed(verbose_handler):
+    try:
+        subprocess.run(['/opt/mopac/MOPAC2016.exe', '-v'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        verbose_handler.output("'MOPAC' is installed and accessible.")
+    except subprocess.CalledProcessError:
+        print("Error: 'MOPAC' is installed but could not be executed.")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("Error: 'MOPAC' is not installed. Please install it and try again.")
+        sys.exit(1)
+
+def check_requirements(verbose_handler):
+    #check_fpocket_installed(verbose_handler)
+    #check_concavity_installed(verbose_handler)
+    check_primordia_installed(verbose_handler)
+    check_mopac_installed(verbose_handler)
+
 # Verify input
 def verify_input(args):
     if os.path.isfile(args.input_path):
