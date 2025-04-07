@@ -177,33 +177,36 @@ class ScoringPockets:
                     and Tyr(OH) atom frequency.
         """
         total_hydro = 0.0
-        residue_count = 0  # Counter for the number of residues
-        aromatic_count = 0  # Counter for aromatic residues (F, Y, H, W)
-        tyr_oh_count = 0  # Counter for Tyr(OH) atoms
+        residue_count = 0
+        aromatic_count = 0
+        tyr_oh_count = 0
 
-        # Read the residue file and extract residue names and atoms
+        residues_seen = set()  # Para armazenar resíduos únicos
+        aromatic_residues = {"PHE", "TYR", "HIS", "TRP"}
+
         with open(residue_file, 'r') as file:
             for line in file:
                 if line.startswith("ATOM"):
-                    # Extract residue name (columns 17-20 in PDB format)
                     residue_name = line[17:20].strip()
-                    # Add hydrophobicity value to the total (default to -0.17 for unknown residues)
-                    total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
-                    residue_count += 1  # Increment the residue count
+                    chain_id = line[21].strip()
+                    residue_number = line[22:26].strip()
+                    residue_id = (residue_name, residue_number, chain_id)
 
-                    # Check for aromatic residues
-                    if residue_name in ["PHE", "TYR", "HIS", "TRP"]:
-                        aromatic_count += 1
+                    # Contabiliza o resíduo apenas uma vez
+                    if residue_id not in residues_seen:
+                        residues_seen.add(residue_id)
+                        residue_count += 1
+                        total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
 
-                    # Check for Tyr(OH) atoms (atom name Otyr assumed to be "OH " in columns 13-16)
+                        if residue_name in aromatic_residues:
+                            aromatic_count += 1
+
+                    # Verifica Tyr(OH) por átomo
                     atom_name = line[12:16].strip()
                     if residue_name == "TYR" and atom_name == "OH":
                         tyr_oh_count += 1
 
-        # Calculate average hydrophobicity
         avg_hydro = total_hydro / residue_count if residue_count > 0 else 0.0
-
-        # Calculate frequencies
         aromatic_freq = aromatic_count / residue_count if residue_count > 0 else 0.0
         tyr_oh_freq = tyr_oh_count / residue_count if residue_count > 0 else 0.0
 
