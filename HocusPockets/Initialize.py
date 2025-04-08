@@ -134,29 +134,40 @@ def check_concavity_installed(verbose_handler):
 
 def check_primordia_installed(verbose_handler):
     try:
-        subprocess.run(['/opt/PRIMoRDiA_1.25v_LINUX64', '-v'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        verbose_handler.output("'PRIMoRDIA' is installed and accessible.")
-    except subprocess.CalledProcessError:
-        print("Error: 'PRIMoRDIA' is installed but could not be executed.")
-        sys.exit(1)
+        result = subprocess.run(
+            ['/opt/PRIMoRDiA_1.25v_LINUX64'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        if result.returncode == 0:
+            verbose_handler.output("'PRIMoRDIA' is installed and accessible.")
+        else:
+            verbose_handler.output("'PRIMoRDIA' is installed but returned a non-zero exit code.")
+            verbose_handler.output(f"STDERR: {result.stderr.decode()}")
     except FileNotFoundError:
         print("Error: 'PRIMoRDIA' is not installed. Please install it and try again.")
         sys.exit(1)
 
 def check_mopac_installed(verbose_handler):
     try:
-        subprocess.run(['/opt/mopac/MOPAC2016.exe', '-v'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(
+            ['/opt/mopac/MOPAC2016.exe'],
+            input=b'\n',
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
         verbose_handler.output("'MOPAC' is installed and accessible.")
     except subprocess.CalledProcessError:
-        print("Error: 'MOPAC' is installed but could not be executed.")
-        sys.exit(1)
+        # Se o erro for esperado pela falta de input válido, podemos aceitar
+        verbose_handler.output("'MOPAC' is installed and executable, but no input was given.")
     except FileNotFoundError:
         print("Error: 'MOPAC' is not installed. Please install it and try again.")
         sys.exit(1)
 
 def check_requirements(verbose_handler):
-    #check_fpocket_installed(verbose_handler)
-    #check_concavity_installed(verbose_handler)
+    check_fpocket_installed(verbose_handler)
+    check_concavity_installed(verbose_handler)
     check_primordia_installed(verbose_handler)
     check_mopac_installed(verbose_handler)
 

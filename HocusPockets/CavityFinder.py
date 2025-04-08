@@ -153,6 +153,40 @@ class CavityFinder:
             centers[residue_id] = np.mean(atom_coords, axis=0)
         return centers
 
+    def generate_overlap_report(self, cavity_path, program_cavities):
+        """
+        Generates a CSV file reporting the percentage of residue overlap between all cavities from different programs.
+        """
+        protein_name = os.path.basename(os.path.dirname(cavity_path))
+        csv_path = os.path.join(cavity_path, f"{protein_name}_cavity_overlap.csv")
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+        with open(csv_path, mode="w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["Cavity A", "Program A", "Cavity B", "Program B", "Shared Residues (%)"])
+
+            programs = list(program_cavities.keys())
+            for i, prog_a in enumerate(programs):
+                for pocket_a in program_cavities[prog_a]:
+                    res_a = set(pocket_a['residues'])
+                    for prog_b in programs[i + 1:]:
+                        for pocket_b in program_cavities[prog_b]:
+                            res_b = set(pocket_b['residues'])
+
+                            # Calcula a porcentagem de resíduos compartilhados
+                            shared = res_a.intersection(res_b)
+                            union = res_a.union(res_b)
+                            percent = (len(shared) / len(union)) * 100 if union else 0.0
+
+                            writer.writerow([
+                                os.path.basename(pocket_a['residue_path']),
+                                prog_a,
+                                os.path.basename(pocket_b['residue_path']),
+                                prog_b,
+                                f"{percent:.2f}"
+                            ])
+
+
     def compare_cavities(self, cavity_path):
         """
         Compares cavities across different programs (fpocket, ligsite, pocketfinder, surfnet).
@@ -197,6 +231,7 @@ class CavityFinder:
                                 print(f"Cavities {os.path.basename(pocket_a['residue_path'])} (from {prog_a}) and {os.path.basename(pocket_b['residue_path'])} (from {prog_b}) are considered equal.")
                             pocket_b['id'] = pocket_a['id']  # Ensure the second cavity has the same ID as the first one
                             cavity_ids[pocket_b['grid_path']] = pocket_a['id']  # Update the cavity ID dictionary
+        self.generate_overlap_report(cavity_path, program_cavities)
         score_cavity = ScoringPockets(self.input_path, self.output_path, self.verbose_handler)
         score_cavity.score_routine(cavity_path, program_cavities, cavity_ids)
     
