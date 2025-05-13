@@ -135,7 +135,7 @@ def check_concavity_installed(verbose_handler):
 def check_primordia_installed(verbose_handler):
     try:
         result = subprocess.run(
-            ['/opt/PRIMoRDiA_1.25v_LINUX64'],
+            ['PRIMoRDiA_1.25v_LINUX64'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -151,7 +151,7 @@ def check_primordia_installed(verbose_handler):
 def check_mopac_installed(verbose_handler):
     try:
         subprocess.run(
-            ['/opt/mopac/MOPAC2016.exe'],
+            ['mopac'],
             input=b'\n',
             check=True,
             stdout=subprocess.PIPE,

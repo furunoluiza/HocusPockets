@@ -16,6 +16,7 @@ from scipy.spatial import ConvexHull #volume
 import matplotlib.pyplot as plt
 from Initialize import *
 from ScoringPockets import *
+from CatalyticCav import *
 
 
 # License
@@ -235,7 +236,40 @@ class CavityFinder:
         score_cavity = ScoringPockets(self.input_path, self.output_path, self.verbose_handler)
         score_cavity.score_routine(cavity_path, program_cavities, cavity_ids)
     
-    def find_cavities_in_directory(self):
+
+    def add_fukushima_scores_to_csv(self, cavity_path, fukushima_results):
+        """
+        Adiciona os valores médios de Fukushima à tabela .csv de cavidades previamente criada.
+
+        Input:
+            cavity_path [str]: Caminho para a pasta onde está o CSV com as cavidades.
+            fukushima_results [dict]: Dicionário com chaves (programa, arquivo_residuo) e valores sendo o score de Fukushima.
+        Return:
+            None
+        """
+        protein_name = os.path.basename(os.path.dirname(cavity_path))
+        csv_file = os.path.join(cavity_path, f"{protein_name}_cavity_scores.csv")
+        updated_rows = []
+
+        # Lê o CSV original
+        with open(csv_file, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames + ['Fukushima_Score'] if 'Fukushima_Score' not in reader.fieldnames else reader.fieldnames
+
+            for row in reader:
+                key = (row['Program'], row['Residue_File'])
+                fuku_score = fukushima_results.get(key, None)
+                row['Fukushima_Score'] = f"{fuku_score:.4f}" if fuku_score is not None else ""
+                updated_rows.append(row)
+
+        # Reescreve o CSV com a nova coluna
+        with open(csv_file, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(updated_rows)
+
+
+    def find_cavities_in_directory(self): #Precisa testar!
         """
         Finds cavities when the input is a directory of files.
         Input:
@@ -249,7 +283,12 @@ class CavityFinder:
         protein_output_dirs = concavity_finder.process_directory()
         for protein_output_dir in protein_output_dirs:
             program_dir = os.path.join(protein_output_dir, 'cavities')  # Adiciona "cavities" ao final
+            protein_name = os.path.splitext(os.path.basename(protein_output_dir))[0]
+            rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
+            catalytic_cavity = CatalyticCav(program_dir, rslrd_file, self.verbose_handler)
+            results = catalytic_cavity.compute_fukushima_average()
             self.compare_cavities(program_dir)
+            self.add_fukushima_scores_to_csv(program_dir, results)
 
 
     def find_cavities_in_file(self, protein_output_dir):
@@ -261,11 +300,17 @@ class CavityFinder:
             Nothing.
         """
         cavities_output_dir = os.path.join(protein_output_dir, 'cavities')
+        protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
+        rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
         fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_file()
         concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path, protein_output_dir)
+        catalytic_cavity = CatalyticCav(cavities_output_dir, rslrd_file, self.verbose_handler)
+        results = catalytic_cavity.compute_fukushima_average()
         self.compare_cavities(cavities_output_dir)
+        self.add_fukushima_scores_to_csv(cavities_output_dir, results)
+        
     
     def find_cavities(self):
         """

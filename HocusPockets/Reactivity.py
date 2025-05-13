@@ -58,7 +58,7 @@ class Reactivity:
         """
         os.makedirs(primordia_dir, exist_ok=True)
 
-        command = ["/opt/PRIMoRDiA_1.25v_LINUX64", "-f", primordia_file]
+        command = ["PRIMoRDiA_1.25v_LINUX64", "-f", primordia_file]
         
         result = subprocess.run(command, cwd=primordia_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -115,7 +115,7 @@ class Reactivity:
         output_err = os.path.join(reactivity_dir, f"{base_name}.err")
 
         with open(output_err, 'w') as f:
-            process = subprocess.run(['/opt/mopac/MOPAC2016.exe', mopac_file], cwd=reactivity_dir, 
+            process = subprocess.run(['mopac', mopac_file], cwd=reactivity_dir, 
                                      stdout=subprocess.DEVNULL, stderr=f, check=True)
         return output_aux
         
