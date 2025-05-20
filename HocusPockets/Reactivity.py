@@ -89,7 +89,7 @@ class Reactivity:
         
         # Caminho do arquivo de entrada do PRIMoRDiA
         primordia_file = os.path.join(primordia_dir, f"{protein_name}_primordia.input")
-
+        print(primordia_file)
         # Escreve o conteúdo no arquivo
         with open(primordia_file, "w") as f:
             f.write("#RT normal\n")
@@ -115,7 +115,7 @@ class Reactivity:
         output_err = os.path.join(reactivity_dir, f"{base_name}.err")
 
         with open(output_err, 'w') as f:
-            process = subprocess.run(['mopac', mopac_file], cwd=reactivity_dir, 
+            process = subprocess.run(['/opt/mopac/MOPAC2016.exe', mopac_file], cwd=reactivity_dir, 
                                      stdout=subprocess.DEVNULL, stderr=f, check=True)
         return output_aux
         
@@ -171,10 +171,13 @@ class Reactivity:
                     os.makedirs(protein_output_dir, exist_ok=True)
                     reactivity_dir = os.path.join(protein_output_dir, "reactivity")
                     mopac_dir = os.path.join(reactivity_dir, "mopac")
+                    primordia_dir = os.path.join(reactivity_dir, "primordia")
                     os.makedirs(mopac_dir, exist_ok=True)
+                    os.makedirs(primordia_dir, exist_ok=True)
                     mopac_file = self.create_mopac_file(input_file, mopac_dir)
                     output_aux = self.run_mopac(mopac_file, mopac_dir)
-                    primordia_file = self.create_primordia_file(input_file, output_aux, reactivity_dir)
+                    primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
+                    self.run_primordia(primordia_file, primordia_dir)
                     
 
     def process_file(self, protein_output_dir):

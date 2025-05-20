@@ -52,7 +52,7 @@ class CatalyticCav:
         with open(pdb_path, 'r') as file:
             for line in file:
                 if line.startswith("ATOM"):
-                    res_seq = line[22:26].strip()
+                    res_seq = int(line[22:26].strip()) - 1
                     res_name = line[17:20].strip()
                     residue_id = f"{res_seq}{res_name}"
                     residues.add(residue_id)

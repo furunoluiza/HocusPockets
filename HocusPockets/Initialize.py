@@ -151,7 +151,7 @@ def check_primordia_installed(verbose_handler):
 def check_mopac_installed(verbose_handler):
     try:
         subprocess.run(
-            ['mopac'],
+            ['/opt/mopac/MOPAC2016.exe'],
             input=b'\n',
             check=True,
             stdout=subprocess.PIPE,

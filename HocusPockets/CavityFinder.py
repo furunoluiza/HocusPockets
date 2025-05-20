@@ -164,7 +164,7 @@ class CavityFinder:
 
         with open(csv_path, mode="w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["Cavity A", "Program A", "Cavity B", "Program B", "Shared Residues (%)"])
+            writer.writerow(["Cavity_A", "Program_A", "Cavity_B", "Program_B", "Shared_Residues_(%)"])
 
             programs = list(program_cavities.keys())
             for i, prog_a in enumerate(programs):
