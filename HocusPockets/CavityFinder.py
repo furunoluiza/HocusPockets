@@ -287,6 +287,7 @@ class CavityFinder:
             rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
             catalytic_cavity = CatalyticCav(program_dir, rslrd_file, self.verbose_handler)
             results = catalytic_cavity.compute_fukushima_average()
+            catalytic_cavity.process_fukui_cav()
             self.compare_cavities(program_dir)
             self.add_fukushima_scores_to_csv(program_dir, results)
 
@@ -302,12 +303,14 @@ class CavityFinder:
         cavities_output_dir = os.path.join(protein_output_dir, 'cavities')
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
         rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
+        fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
         fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_file()
         concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path, protein_output_dir)
-        catalytic_cavity = CatalyticCav(cavities_output_dir, rslrd_file, self.verbose_handler)
+        catalytic_cavity = CatalyticCav(cavities_output_dir, rslrd_file, fukui_file, self.verbose_handler)
         results = catalytic_cavity.compute_fukushima_average()
+        catalytic_cavity.process_fukui_cav()
         self.compare_cavities(cavities_output_dir)
         self.add_fukushima_scores_to_csv(cavities_output_dir, results)
         

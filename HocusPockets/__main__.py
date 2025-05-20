@@ -62,7 +62,6 @@ def main():
     print(clrs['g'] + "HocusPockets has completed its execution." + clrs['n'])
     verbose_handler.close()
 
-
 # Execute
 if __name__ == "__main__":
     main()

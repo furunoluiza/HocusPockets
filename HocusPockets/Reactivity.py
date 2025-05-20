@@ -89,7 +89,6 @@ class Reactivity:
         
         # Caminho do arquivo de entrada do PRIMoRDiA
         primordia_file = os.path.join(primordia_dir, f"{protein_name}_primordia.input")
-        print(primordia_file)
         # Escreve o conteúdo no arquivo
         with open(primordia_file, "w") as f:
             f.write("#RT normal\n")
@@ -165,19 +164,22 @@ class Reactivity:
         for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
             for file in files:
                 if file.endswith(('.pdb')):
-                    input_file = os.path.join(root, file)
-                    protein_name = os.path.splitext(os.path.basename(input_file))[0]
-                    protein_output_dir = os.path.join(self.output_path, protein_name)
-                    os.makedirs(protein_output_dir, exist_ok=True)
-                    reactivity_dir = os.path.join(protein_output_dir, "reactivity")
-                    mopac_dir = os.path.join(reactivity_dir, "mopac")
-                    primordia_dir = os.path.join(reactivity_dir, "primordia")
-                    os.makedirs(mopac_dir, exist_ok=True)
-                    os.makedirs(primordia_dir, exist_ok=True)
-                    mopac_file = self.create_mopac_file(input_file, mopac_dir)
-                    output_aux = self.run_mopac(mopac_file, mopac_dir)
-                    primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
-                    self.run_primordia(primordia_file, primordia_dir)
+                    try:
+                        input_file = os.path.join(root, file)
+                        protein_name = os.path.splitext(os.path.basename(input_file))[0]
+                        protein_output_dir = os.path.join(self.output_path, protein_name)
+                        os.makedirs(protein_output_dir, exist_ok=True)
+                        reactivity_dir = os.path.join(protein_output_dir, "reactivity")
+                        mopac_dir = os.path.join(reactivity_dir, "mopac")
+                        primordia_dir = os.path.join(reactivity_dir, "primordia")
+                        os.makedirs(mopac_dir, exist_ok=True)
+                        os.makedirs(primordia_dir, exist_ok=True)
+                        mopac_file = self.create_mopac_file(input_file, mopac_dir)
+                        output_aux = self.run_mopac(mopac_file, mopac_dir)
+                        primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
+                        self.run_primordia(primordia_file, primordia_dir)
+                    except Exception as e:
+                        self.verbose_handler.output("Fail to process {file}: {e}")
                     
 
     def process_file(self, protein_output_dir):
