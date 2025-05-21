@@ -34,18 +34,15 @@ class CatalyticCav:
         self.verbose_handler = verbose_handler
         self.rslrd_file = rslrd_file
         self.fukui_file = fukui_file
-        self.fukushima_dict = self.load_fukushima_data()
-
-    import os
+        self.fukushima_dict, self.fukui_dict = self.load_data()
 
     def process_fukui_cav(self):
         """
         Identifica resíduos catalíticos com base nos maiores valores de Fukui
         extraídos da coluna B-factor do arquivo PDB. Os resíduos com pelo menos
-        um átomo entre os 20% maiores valores são considerados catalíticos e são
+        um átomo entre os 10% maiores valores são considerados catalíticos e são
         salvos em um novo arquivo PDB.
         """
-        print("entrou")
         if not os.path.exists(self.fukui_file):
             self.verbose_handler.output(f"[ERROR] Fukui file {self.fukui_file} not found.")
             return
@@ -70,10 +67,10 @@ class CatalyticCav:
 
         # Define o ponto de corte para os 20% maiores valores
         values.sort()
-        cutoff_index = int(0.8 * len(values))
+        cutoff_index = int(0.9 * len(values))
         cutoff_value = values[cutoff_index]
 
-        self.verbose_handler.output(f"[INFO] Fukui cutoff: {cutoff_value:.4f} (top 20%)")
+        self.verbose_handler.output(f"[INFO] Fukui cutoff: {cutoff_value:.4f} (top 10%)")
 
         # Seleciona linhas com valor acima do cutoff
         selected_lines = []
@@ -99,8 +96,9 @@ class CatalyticCav:
             out.writelines(selected_lines)
 
 
-    def load_fukushima_data(self):
+    def load_data(self):
         fukushima_data = {}
+        fukui_data = {}
         with open(self.rslrd_file, 'r') as file:
             for line in file:
                 if line.startswith('#') or not line.strip():
@@ -108,8 +106,10 @@ class CatalyticCav:
                 parts = line.strip().split()
                 res_id = parts[0]  # Ex: "1MET"
                 fukushima_value = float(parts[13])  # Fukushima está na 14ª coluna (índice 13)
+                fukui_value = float(parts[9])
                 fukushima_data[res_id] = fukushima_value
-        return fukushima_data
+                fukui_data[res_id] = fukui_value
+        return fukushima_data, fukui_data
     
     def get_residues_from_pdb(self, pdb_path):
         residues = set()
@@ -122,9 +122,10 @@ class CatalyticCav:
                     residues.add(residue_id)
         return residues
 
-    def compute_fukushima_average(self):
+    def compute_average(self):
         cavity_programs = ['fpocket', 'ligsite', 'surfnet', 'pocketfinder']
-        results = {}
+        results_fukushima = {}
+        results_fukui = {}
 
         for program in cavity_programs:
             program_dir = os.path.join(self.cavities_path, program)
@@ -136,17 +137,25 @@ class CatalyticCav:
                     pocket_path = os.path.join(program_dir, pocket_file)
                     residues = self.get_residues_from_pdb(pocket_path)
                     
-                    fuku_values = [
+                    fukushima_values = [
                         self.fukushima_dict[res] for res in residues if res in self.fukushima_dict
                     ]
 
-                    if fuku_values:
-                        avg_fukushima = sum(fuku_values) / len(fuku_values)
+                    if fukushima_values:
+                        avg_fukushima = sum(fukushima_values) / len(fukushima_values)
                     else:
                         avg_fukushima = None
+                    
+                    fukui_values = [
+                        self.fukui_dict[res] for res in residues if res in self.fukui_dict
+                    ]
 
-                    results[(program, pocket_file)] = avg_fukushima
+                    if fukui_values:
+                        avg_fukui = sum(fukui_values) / len(fukui_values)
+                    else:
+                        avg_fukui = None
 
-        return results
+                    results_fukushima[(program, pocket_file)] = avg_fukushima
+                    results_fukui[(program, pocket_file)] = avg_fukui
 
-                        
+        return results_fukushima, results_fukui
