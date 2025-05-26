@@ -279,8 +279,6 @@ class CavityFinder:
             writer.writeheader()
             writer.writerows(updated_rows)
 
-
-
     def find_cavities_in_directory(self):
         """
         Finds cavities when the input is a directory of files.
@@ -289,6 +287,7 @@ class CavityFinder:
         Return:
             Nothing.
         """
+        # Run Fpocket and ConCavity for all files
         fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_directory()
         concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
@@ -299,11 +298,13 @@ class CavityFinder:
                 protein_name = os.path.splitext(os.path.basename(protein_output_dir))[0]
                 rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
                 fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
+                self.verbose_handler.output(f"[INFO] Processing catalytic cavity for: {protein_name}")
                 catalytic_cavity = CatalyticCav(program_dir, rslrd_file, fukui_file, self.verbose_handler)
                 results_fukushima, results_fukui = catalytic_cavity.compute_average()
                 catalytic_cavity.process_fukui_cav()
                 self.compare_cavities(program_dir)
                 self.add_fukushima_scores_to_csv(program_dir, results_fukushima, results_fukui)
+                self.verbose_handler.output(f"[SUCCESS] Finished catalytic cavity analysis for: {protein_name}")
             except Exception as e:
                 self.verbose_handler.output(f"[WARNING] Error processing: {protein_output_dir}: {e}")
                 continue
@@ -321,6 +322,7 @@ class CavityFinder:
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
         rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
         fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
+        self.verbose_handler.output(f"[INFO] Processing single file for cavities: {self.input_path}")
         fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_file()
         concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
@@ -330,6 +332,7 @@ class CavityFinder:
         catalytic_cavity.process_fukui_cav()
         self.compare_cavities(cavities_output_dir)
         self.add_fukushima_scores_to_csv(cavities_output_dir, results_fukushima, results_fukui)
+        self.verbose_handler.output(f"[SUCCESS] Cavity analysis completed for: {protein_name}")
         
     
     def find_cavities(self):
@@ -482,11 +485,13 @@ class ConCavityFinder(CavityFinder):
         """
         Runs the ConCavity tool on the specified input PDB file using various grid methods.
         Input:
-            input_file [str] - Path to the input PDB file for analysis.
+            input_file [str]    - Path to the input PDB file for analysis.
+            output_path [str]   - Directory where ConCavity output will be stored.
         Return:
             Nothing.
         """
         grid_methods = ['pocketfinder', 'ligsite', 'surfnet'] # List of grid methods to be used in the ConCavity analysis
+        success = False  # Track if any method runs successfully
         for method in grid_methods: # Iterate through each grid method to process the input file
             method_output_dir = os.path.join(output_path, 'cavities', method)
             os.makedirs(method_output_dir, exist_ok=True)
@@ -501,9 +506,13 @@ class ConCavityFinder(CavityFinder):
                 method
             ]
             return_code = subprocess.call(command)
-            assert return_code == 0, clrs['r'] + f'Problem running ConCavity with {method} method' + clrs['n']
+            if return_code != 0:
+                self.verbose_handler.output(f"[ERROR] ConCavity failed for {input_file} using method: {method}")
+                continue
             self.access_concavity(input_file, method_output_dir, method)
             self.cleanup_files(input_file, method)
+            success = True
+        return success
 
     def process_directory(self):
         """
@@ -521,9 +530,11 @@ class ConCavityFinder(CavityFinder):
                     protein_name = os.path.splitext(os.path.basename(input_file))[0]
                     protein_output_dir = os.path.join(self.output_path, protein_name)
                     os.makedirs(protein_output_dir, exist_ok=True)
-                    self.run_concavity(input_file, protein_output_dir)
+                    success = self.run_concavity(input_file, protein_output_dir)
+                    if not success:
+                        continue
                     output_dirs.append(protein_output_dir)
-        return (output_dirs)
+        return output_dirs
 
 class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
@@ -551,7 +562,10 @@ class FpocketFinder(CavityFinder):
         """
         with open(os.devnull, 'w') as devnull:
             return_code = subprocess.call(['fpocket', '-f' + input_file], stdout=devnull, stderr=devnull)
-        assert return_code == 0, clrs['r'] + f'Problem running fpocket on {input_file}' + clrs['n']
+        if return_code != 0:
+            self.verbose_handler.output(f"[ERROR] Problem running Fpocket on: {input_file}")
+            return False
+        return True
 
     @staticmethod
     def parse_info(pockets_info):
@@ -599,7 +613,7 @@ class FpocketFinder(CavityFinder):
         Processes the pocket files generated by fpocket and identifies residues close to each pocket's grid points or geometric centers.
         Input:
             pockets_paths [list of dicts] - List of dictionaries containing pocket paths and information.
-            input_file [str] - Path to the input protein file (.pdb format).
+            input_file [str]              - Path to the input protein file (.pdb format).
         Return:
             Nothing.
         """
@@ -668,7 +682,7 @@ class FpocketFinder(CavityFinder):
         Copies pocket files to a dedicated directory and cleans up temporary folders after processing.
         Input:
             pockets_paths [list of dicts] - List of dictionaries containing information about each pocket.
-            input_file [str] - Path to the protein input file being processed.
+            input_file [str]              - Path to the protein input file being processed.
         Return:
             [list of dicts] List of dictionaries for each pocket.
         """
@@ -700,7 +714,9 @@ class FpocketFinder(CavityFinder):
         Return:
             Nothing.
         """
-        self.run_fpocket(self.input_path)
+        sucess = self.run_fpocket(self.input_path)
+        if not sucess:
+            return
         pockets_info = self.access_pockets(self.input_path)
         updated_pockets_paths = self.copy_and_cleanup(pockets_info, self.input_path, self.output_path)
         self.process_fpocket_residues(updated_pockets_paths, self.input_path)
@@ -713,7 +729,6 @@ class FpocketFinder(CavityFinder):
         Return:
             [str] Paths to each protein's output directory.
         """
-        #protein_outputs = []
         for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
             for file in files:
                 if file.endswith(('.pdb')):
@@ -721,9 +736,9 @@ class FpocketFinder(CavityFinder):
                     protein_name = os.path.splitext(os.path.basename(input_file))[0]
                     protein_output_dir = os.path.join(self.output_path, protein_name)
                     os.makedirs(protein_output_dir, exist_ok=True)
-                    self.run_fpocket(input_file)
+                    sucess = self.run_fpocket(input_file)
+                    if not sucess:
+                        continue
                     filtered_pockets = self.access_pockets(input_file)
                     updated_pockets_paths = self.copy_and_cleanup(filtered_pockets, input_file, protein_output_dir)
                     self.process_fpocket_residues(updated_pockets_paths, input_file) 
-                    #protein_outputs.append(protein_output_dir)
-        #return protein_outputs

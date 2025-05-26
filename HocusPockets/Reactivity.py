@@ -3,7 +3,19 @@
 # Description
 ###############################################################################
 '''
-Descrição do que esse arquivo faz
+    This module defines the Reactivity class, which is responsible for calculating
+    quantum chemical reactivity descriptors for protein structures using MOPAC
+    (semi-empirical quantum chemistry) and PRIMoRDiA (electrostatic and orbital-based analysis).
+
+    Main functionalities:
+    - Converts .pdb files into MOPAC-compatible .mop files with appropriate headers.
+    - Executes MOPAC and collects output (.aux files) for quantum calculations.
+    - Generates PRIMoRDiA input files based on MOPAC results and the original structure.
+    - Runs PRIMoRDiA to obtain residue-level electronic descriptors.
+    - Supports processing of individual files or batch processing of entire directories.
+    - Includes verbose logging support for integration with analysis pipelines.
+
+    This module is typically used as part of the HocusPockets workflow.
 '''
 
 # Imports
@@ -28,24 +40,25 @@ E-mail address: luizafuruno@ufrj.br
 '''
 
 class Reactivity:
-    def __init__(self, input_path, output_path, verbose_handler):
+    def __init__(self, input_path, output_path, verbose_handler, eband_limit=3):
         """
-            Initializes the CavityFinder object.
-            
-            Parameters:
-            input_path      (str)  - Path to the input file or directory containing the protein structure.
-            output_path     (str)  - Path where the output will be saved.
-            verbose_handler (bool) - Object to handle verbose output.
-            
-            Returns:
-            None
+        Initializes the Reactivity object for computing reactivity descriptors using
+        MOPAC and PRIMoRDiA.
+
+        Input:
+            input_path      [str]  - Path to a single .pdb file or directory containing multiple .pdb files.
+            output_path     [str]  - Directory where output files will be saved.
+            verbose_handler [obj]  - Instance of VerboseHandler for logging output messages.
+
+        Return:
+            Nothing.
         """
         self.input_path = input_path
         self.output_path = output_path
         self.verbose_handler = verbose_handler
+        self.eband_limit = eband_limit
 
-    @staticmethod
-    def run_primordia(primordia_file, primordia_dir):
+    def run_primordia(self, primordia_file, primordia_dir):
         """
         Runs PRIMoRDiA on the given input file.
 
@@ -57,148 +70,149 @@ class Reactivity:
             Nothing.
         """
         os.makedirs(primordia_dir, exist_ok=True)
-
         command = ["PRIMoRDiA_1.25v_LINUX64", "-f", primordia_file]
-        
+        self.verbose_handler.output(f"[INFO] Running PRIMoRDiA for: {primordia_file}")
         result = subprocess.run(command, cwd=primordia_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
         if result.returncode != 0:
-            raise RuntimeError(f"Error running PRIMoRDiA on {primordia_file}.")
-
-        print(f"PRIMoRDiA completed successfully.")
-    
+            self.verbose_handler.output(f"[ERROR] PRIMoRDiA execution failed for: {primordia_file}")
+            return
+        else:
+            self.verbose_handler.output(f"[SUCESS] PRIMoRDIA completed for: {primordia_file}")
 
     @staticmethod
-    def create_primordia_file(input_path, output_aux, primordia_dir):
+    def create_primordia_file(input_path, output_aux, primordia_dir, eband_limit=3):
         """
-        Creates a PRIMoRDiA input file inside the 'primordia' directory within the reactivity directory.
-
+        Creates a PRIMoRDiA input file using the .aux output from MOPAC
+        and the original .pdb structure.
         Input:
-            input_path [str]     - Path to the input PDB file.
-            output_aux [str]     - Path to the MOPAC .aux output file.
-            reactivity_dir [str] - Directory where PRIMoRDiA outputs will be stored.
-
+            input_path     [str]   - Path to the input PDB file.
+            output_aux     [str]   - Path to the MOPAC .aux output file.
+            primordia_dir  [str]   - Directory where the input file will be saved.
+            eband_limit    [int] - Energy range limit (in eV) for orbital selection. Default is 3.
         Return:
-            primordia_file [str] - Path to the created PRIMoRDiA input file.
+            [str] Path to the generated PRIMoRDiA input file.
         """
-        # Obtém o nome da proteína sem extensão
         protein_name = os.path.splitext(os.path.basename(input_path))[0]
-
-        # Garante que os caminhos são absolutos e formatados corretamente
         abs_input_path = os.path.abspath(input_path)
-        
-        # Caminho do arquivo de entrada do PRIMoRDiA
         primordia_file = os.path.join(primordia_dir, f"{protein_name}_primordia.input")
-        # Escreve o conteúdo no arquivo
+        # Write PRIMoRDiA input with required keywords and paths
         with open(primordia_file, "w") as f:
             f.write("#RT normal\n")
-            f.write("#PR eband 3 Rscript\n")
+            f.write(f"#PR eband {eband_limit} Rscript\n")
             f.write(f"3 {output_aux} none 0 0 {abs_input_path} mopac 0 0 0 0 EW\n")
-
         return primordia_file
 
-    @staticmethod
-    def run_mopac(mopac_file, reactivity_dir):
+    def run_mopac(self, mopac_file, reactivity_dir):
         """
         Runs MOPAC on the given .mop file and saves the output in the reactivity directory.
-
         Input:
-            mopac_file [str]     - Path to the .mop input file.
-            reactivity_dir [str] - Directory where MOPAC outputs will be saved.
-
+            mopac_file [str]        Path to the .mop input file.
+            reactivity_dir [str]    Directory where MOPAC outputs will be saved.
         Return:
-            Nothing.
+            [str] Path to the generated .aux output file.
         """
         base_name = os.path.splitext(os.path.basename(mopac_file))[0]
+        # Define output file paths
         output_aux = os.path.join(reactivity_dir, f"{base_name}.aux")
         output_err = os.path.join(reactivity_dir, f"{base_name}.err")
-
+        self.verbose_handler.output(f"[INFO] Running MOPAC for: {mopac_file}")
+        # Run MOPAC and capture errors in a dedicated error file
         with open(output_err, 'w') as f:
             process = subprocess.run(['/opt/mopac/MOPAC2016.exe', mopac_file], cwd=reactivity_dir, 
                                      stdout=subprocess.DEVNULL, stderr=f, check=True)
+        print("MOPAC return code:", process.returncode) # Para colocar os cometários no .log
         return output_aux
         
     @staticmethod
     def create_mopac_file(input_file, protein_output_dir):
         """
-        Cria um arquivo .mop a partir de um arquivo PDB, incluindo um cabeçalho específico.
-        
+        Converts a PDB file into a MOPAC-compatible .mop file, including a predefined header.
+
         Input:
-            input_file [str] - Caminho do arquivo PDB de entrada.
-            protein_output_dir [str] - Diretório onde o arquivo .mop será salvo.
+            input_file [str]            - Path to the input PDB file.
+            protein_output_dir [str]    - Directory where the resulting .mop file will be saved.
 
         Return:
-            [str] - Caminho do arquivo .mop gerado.
+            [str] Path to the generated .mop file.
         """
-        # Nome do arquivo de saída
+        # Define the name of the output .mop file
         mopac_file = os.path.join(protein_output_dir, os.path.basename(input_file).replace(".pdb", ".mop"))
-        
-        # Cabeçalho do arquivo .mop
+        # Define the MOPAC-specific header (includes PM7 method, solvent model, etc.)
         header = """PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4
         
         
-"""
-        
-        # Lendo o PDB e extraindo as linhas "ATOM"
+"""     
+        # Extract only ATOM lines from the PDB file
         atom_lines = []
         with open(input_file, "r") as pdb:
             for line in pdb:
-                if line.startswith("ATOM"):  # Apenas linhas que começam com ATOM
-                    atom_lines.append(line.strip())  # Mantém a linha completa
-
-        # Escrevendo o arquivo .mop
+                if line.startswith("ATOM"):
+                    atom_lines.append(line.strip())
+        # Write the .mop file with the header followed by ATOM entries
         with open(mopac_file, "w") as mop:
-            mop.write(header)  # Escreve o cabeçalho
-            mop.write("\n".join(atom_lines))  # Escreve as linhas do PDB
-
+            mop.write(header)
+            mop.write("\n".join(atom_lines))
         return mopac_file
 
     def process_directory(self):
         """
-        Processes all protein files in a directory ...
+        Processes all .pdb protein files in the input directory and applies
+        MOPAC and PRIMoRDIA calculations on each.
+
         Input:
             Nothing.
-        Return:
-            
+        Output:
+            Creates structured output directories and files for each protein.
         """
         for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
             for file in files:
                 if file.endswith(('.pdb')):
+                    input_file = os.path.join(root, file)
+                    protein_name = os.path.splitext(os.path.basename(input_file))[0]
+                    protein_output_dir = os.path.join(self.output_path, protein_name)
+                    reactivity_dir = os.path.join(protein_output_dir, "reactivity")
+                    mopac_dir = os.path.join(reactivity_dir, "mopac")
+                    primordia_dir = os.path.join(reactivity_dir, "primordia")
                     try:
-                        input_file = os.path.join(root, file)
-                        protein_name = os.path.splitext(os.path.basename(input_file))[0]
-                        protein_output_dir = os.path.join(self.output_path, protein_name)
+                        # Create necessary output directories
                         os.makedirs(protein_output_dir, exist_ok=True)
-                        reactivity_dir = os.path.join(protein_output_dir, "reactivity")
-                        mopac_dir = os.path.join(reactivity_dir, "mopac")
-                        primordia_dir = os.path.join(reactivity_dir, "primordia")
                         os.makedirs(mopac_dir, exist_ok=True)
                         os.makedirs(primordia_dir, exist_ok=True)
+                        # Log start of processing
+                        self.verbose_handler.output(f"[INFO] Processing file for reactivity: {input_file}")
+                        # Run MOPAC and PRIMoRDIA workflow
                         mopac_file = self.create_mopac_file(input_file, mopac_dir)
                         output_aux = self.run_mopac(mopac_file, mopac_dir)
                         primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
                         self.run_primordia(primordia_file, primordia_dir)
+                        self.verbose_handler.output(f"[SUCCESS] Finished processing {file}")
                     except Exception as e:
+                        # Log detailed error message with file name
                         self.verbose_handler.output("Fail to process {file}: {e}")
+                        continue
                     
 
     def process_file(self, protein_output_dir):
         """
-        Processes a single protein file to extract ?????.
+        Processes a single .pdb file provided as input and runs MOPAC and PRIMoRDIA calculations.
         Input:
-            Nothing.
-        Return:
-            Nothing.
+            protein_output_dir [str]    Path where output directories will be created.
+        Output:
+            Generates output under:
+                - <protein_output_dir>/reactivity/mopac/
+                - <protein_output_dir>/reactivity/primordia/
         """
         reactivity_dir = os.path.join(protein_output_dir, "reactivity")
         mopac_dir = os.path.join(reactivity_dir, "mopac")
         primordia_dir = os.path.join(reactivity_dir, "primordia")
         os.makedirs(mopac_dir, exist_ok=True)
         os.makedirs(primordia_dir, exist_ok=True)
+        self.verbose_handler.output(f"[INFO] Processing single file for reactivity: {self.input_path}")
         mopac_file = self.create_mopac_file(self.input_path, mopac_dir)
         output_aux = self.run_mopac(mopac_file, mopac_dir)
         primordia_file = self.create_primordia_file(self.input_path, output_aux, primordia_dir)
         self.run_primordia(primordia_file, primordia_dir)
+        self.verbose_handler.output(f"[SUCCESS] Finished processing single file: {os.path.basename(self.input_path)}")
         
     
     def find_reactivity(self):

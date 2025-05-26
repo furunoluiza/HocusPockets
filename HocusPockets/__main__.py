@@ -3,7 +3,19 @@
 # Description
 ###############################################################################
 '''
-Descrição do que esse arquivo faz
+    This is the main execution script for the HocusPockets pipeline.
+
+    It includes the VerboseHandler class for managing logging and output behavior,
+    and defines the main() function, which serves as the entry point for the workflow.
+
+    Main responsibilities:
+    - Parse and validate command-line arguments.
+    - Check for required software dependencies.
+    - Initialize the logging system.
+    - Run the reactivity descriptor and cavity detection modules.
+    - Provide user feedback via verbose or log file output.
+
+    This script is intended to be run directly and should not be imported as a module.
 '''
 
 # Imports
@@ -31,10 +43,20 @@ E-mail address: luizafuruno@ufrj.br
 '''
 
 class VerboseHandler:
-    def __init__(self, verbose, output_path):
-        self.verbose = verbose
+    """
+    Handles verbose output and logging to file based on user preference.
+
+    Attributes:
+        log_file_path [str]: Path to the log file.
+        log_file [file object or None]: Opened log file for writing if not in verbose mode.
+
+    Methods:
+        output(message): Outputs the message to console or log file depending on verbosity.
+        close(): Closes the log file if it was opened.
+    """
+    def __init__(self, output_path):
         self.log_file_path = os.path.join(output_path, 'verbose.log') if output_path else 'verbose.log'
-        self.log_file = open(self.log_file_path, 'w') if not verbose else None
+        self.log_file = open(self.log_file_path, 'w')
 
     def output(self, message):
         if self.verbose:
@@ -49,13 +71,15 @@ class VerboseHandler:
 
 # Main Function
 def main():
+    """
+    Main function that orchestrates the HocusPockets pipeline.
+    """
     args = args_parse() 
-    verbose_handler = VerboseHandler(args.verbose, args.output)
+    verbose_handler = VerboseHandler(args.output)
     print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
-    check_requirements(verbose_handler)
-    verify_input(args)
+    verify_input(args, verbose_handler)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
-    reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler)
+    reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler, eband_limit=args.eband_limit)
     reactivity_descriptors.find_reactivity()
     cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.distance, args.similarity, args.fpocket_score)
     cavity_finder.find_cavities()

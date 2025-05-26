@@ -3,7 +3,17 @@
 # Description
 ###############################################################################
 '''
-Descrição do que esse arquivo faz
+    This script is part of the HocusPockets toolchain for identifying and analyzing 
+    druggable pockets in protein structures. It performs the following key tasks:
+
+    - Parses command-line arguments for input/output paths and analysis parameters.
+    - Verifies the existence and format of the input (.pdb) files or directories.
+    - Checks for the availability and correct installation of required external tools:
+    fpocket, ConCavity, PRIMoRDIA, and MOPAC.
+    - Logs detailed messages and warnings through a customizable verbose handler.
+
+    This module ensures the environment is correctly configured before the main
+    pocket analysis routines are executed.
 '''
 
 # Imports
@@ -59,8 +69,14 @@ epilogue = tw.dedent("""
     on each site's potential as a biological target.
     """)
 
-# Set arguments
 def args_parse():
+    """
+    Parses command-line arguments provided by the user.
+    Input:
+        Nothing.
+    Returns:
+        args [Namespace] - A namespace containing parsed argument values.
+    """
     parser = argparse.ArgumentParser(prog='HocusPockets',
                                     formatter_class=argparse.RawDescriptionHelpFormatter,
                                     description=description,
@@ -77,11 +93,6 @@ def args_parse():
         '-o', '--output',
         metavar="",
         help='Defines the output path'
-    )
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Enables verbose mode'
     )
     parser.add_argument(
         '--distance',
@@ -105,12 +116,25 @@ def args_parse():
         metavar="",
         help='Minimum druggability score for Fpocket (default: 0.5).'
     )
+    parser.add_argument(
+        '--eband-limit',
+        type=int,
+        default=3,
+        metavar="",
+        help='Sets the HOMO-LUMO energy gap limit (eV) for orbital selection in PRIMoRDIA input (default: 3)'
+    )
     args = parser.parse_args()
     print(description)
     return args
 
-#Verify fpocket program
 def check_fpocket_installed(verbose_handler):
+    """
+    Checks whether 'fpocket' is installed and accessible from the command line.
+    Input:
+        verbose_handler - Object responsible for displaying log messages.
+    Exit:
+        Terminates the script if 'fpocket' is not found or fails to execute.
+    """
     try:
         subprocess.run(['fpocket', '--help'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         verbose_handler.output("'fpocket' is installed and accessible.")
@@ -122,6 +146,13 @@ def check_fpocket_installed(verbose_handler):
         sys.exit(1)
 
 def check_concavity_installed(verbose_handler):
+    """
+    Checks whether 'ConCavity' is installed and accessible from the command line.
+    Input:
+        verbose_handler - Object responsible for displaying log messages.
+    Exit:
+        Terminates the script if 'ConCavity' is not found or fails to execute.
+    """
     try:
         subprocess.run(['concavity'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         verbose_handler.output("'ConCavity' is installed and accessible.")
@@ -133,6 +164,14 @@ def check_concavity_installed(verbose_handler):
         sys.exit(1)
 
 def check_primordia_installed(verbose_handler):
+    """
+    Checks whether 'PRIMoRDIA' is installed and accessible from the command line.
+    Input:
+        verbose_handler - Object responsible for displaying log messages.
+    Exit:
+        Terminates the script if 'PRIMoRDIA' is not found.
+        Logs a warning if it returns a non-zero exit code.
+    """
     try:
         result = subprocess.run(
             ['PRIMoRDiA_1.25v_LINUX64'],
@@ -149,6 +188,13 @@ def check_primordia_installed(verbose_handler):
         sys.exit(1)
 
 def check_mopac_installed(verbose_handler):
+    """
+    Checks whether 'MOPAC' is installed and accessible from the expected path.
+    Input:
+        verbose_handler - Object responsible for displaying log messages.
+    Exit:
+        Terminates the script if 'MOPAC' is not found or fails to run.
+    """
     try:
         subprocess.run(
             ['/opt/mopac/MOPAC2016.exe'],
@@ -158,31 +204,44 @@ def check_mopac_installed(verbose_handler):
             stderr=subprocess.PIPE
         )
         verbose_handler.output("'MOPAC' is installed and accessible.")
-    except subprocess.CalledProcessError:
-        # Se o erro for esperado pela falta de input válido, podemos aceitar
-        verbose_handler.output("'MOPAC' is installed and executable, but no input was given.")
     except FileNotFoundError:
         print("Error: 'MOPAC' is not installed. Please install it and try again.")
         sys.exit(1)
 
-def check_requirements(verbose_handler):
+def verify_input(args, verbose_handler):
+    """
+    Verifies that input and output paths are valid and that required tools are installed.
+    Input:
+        args [Namespace] - Parsed command-line arguments containing input/output paths and options.
+        verbose_handler - Object responsible for displaying log messages.
+    Exit:
+        Terminates the script if:
+            - Any required tool is missing.
+            - Input path is invalid or lacks .pdb files.
+            - Output path is not a directory.
+    """
     check_fpocket_installed(verbose_handler)
     check_concavity_installed(verbose_handler)
     check_primordia_installed(verbose_handler)
     check_mopac_installed(verbose_handler)
-
-# Verify input
-def verify_input(args):
     if os.path.isfile(args.input_path):
-        assert args.input_path.endswith(('.pdb')), clrs['r'] + f'The input file "{args.input_file}" must be a .pdb extension.' + clrs['n']
+        if not args.input_path.endswith(('.pdb')):
+            verbose_handler.output(f'The input file "{args.input_file}" must be a .pdb extension.')
+            sys.exit(1)
     elif os.path.isdir(args.input_path):
         files = os.listdir(args.input_path)
         pdb_files = [f for f in files if f.endswith(('.pdb'))]
         other_files = [f for f in files if not f.endswith(('.pdb'))]
-        assert len(pdb_files) > 0, clrs['r'] + f'The directory "{args.input_path}" does not contain any .pdb files.' + clrs['n']
+        if len(pdb_files) == 0:
+            verbose_handler.output(f'The directory "{args.input_path}" does not contain any .pdb files.')
+            sys.exit(1)
         for file in other_files:
-            print(clrs['y'] + f'Warning: File "{file}" is not a .pdb. Skipping...' + clrs['n'])
+            verbose_handler.output(f'Warning: File "{file}" is not a .pdb. Skipping...')
+            sys.exit(1)
     else:
-        assert False, clrs['r'] + f'The input path "{args.input_path}" is neither a file nor a directory.' + clrs['n']
+        verbose_handler.output(f'The input path "{args.input_path}" is neither a file nor a directory.')
+        sys.exit(1)
     if args.output:
-        assert os.path.isdir(args.output), clrs['r'] + f'The output path "{args.output}" does not exist or is not a directory.' + clrs['n']
+        if not os.path.isdir(args.output):
+            verbose_handler.output(f'The output path "{args.output}" does not exist or is not a directory.')
+            sys.exit(1)
