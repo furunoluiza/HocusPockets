@@ -28,18 +28,18 @@ from Reactivity import *
 # License
 ###############################################################################
 '''
-HocusPockets: Holistic Computacional Utility for Scoring Pockets
+    HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
+    Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
 
-[Federal University of Rio de Janeiro]
+    [Federal University of Rio de Janeiro]
 
-Contact info:
-Carlos Chagas Filho Institute of Biophysics
-LMDM - Laboratory for Molecular Modeling and Dynamics
-Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
-Health Sciences Centre - block G1-19
-E-mail address: luizafuruno@ufrj.br
+    Contact info:
+    Carlos Chagas Filho Institute of Biophysics
+    LMDM - Laboratory for Molecular Modeling and Dynamics
+    Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
+    Health Sciences Centre - block G1-19
+    E-mail address: luizafuruno@ufrj.br
 '''
 
 class VerboseHandler:
@@ -48,7 +48,7 @@ class VerboseHandler:
 
     Attributes:
         log_file_path [str]: Path to the log file.
-        log_file [file object or None]: Opened log file for writing if not in verbose mode.
+        log_file [file object]: Opened log file for writing log messages.
 
     Methods:
         output(message): Outputs the message to console or log file depending on verbosity.
@@ -59,11 +59,8 @@ class VerboseHandler:
         self.log_file = open(self.log_file_path, 'w')
 
     def output(self, message):
-        if self.verbose:
-            print(message)
-        else:
-            if self.log_file:
-                self.log_file.write(message + '\n')
+        if self.log_file:
+            self.log_file.write(message + '\n')
 
     def close(self):
         if self.log_file:
@@ -83,7 +80,7 @@ def main():
     reactivity_descriptors.find_reactivity()
     cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.distance, args.similarity, args.fpocket_score)
     cavity_finder.find_cavities()
-    print(clrs['g'] + "HocusPockets has completed its execution." + clrs['n'])
+    print(clrs['g'] + "HocusPockets has completed it`s execution." + clrs['n'])
     verbose_handler.close()
 
 # Execute

@@ -3,7 +3,22 @@
 # Description
 ###############################################################################
 '''
-Descrição do que esse arquivo faz
+    This module defines the ScoringPockets class, which is responsible for computing
+    a variety of physicochemical and geometric descriptors for protein cavities
+    detected by multiple methods.
+
+    Key functionalities include:
+    - Computing geometric properties from convex hulls: volume, surface area, radius,
+    diameter, minimal thickness, and cylindrical fit.
+    - Calculating residue-based descriptors: average hydrophobicity, frequency of
+    aromatic residues, and the presence of catalytic Tyr(OH) groups.
+    - Aggregating these features into a composite cavity score (currently experimental).
+    - Saving scores to structured CSV reports for further analysis or visualization.
+
+    The scoring system is designed to assist in evaluating and ranking potential
+    ligand-binding pockets in protein structures.
+
+    Note: The scoring weights and normalization strategy are still subject to validation.
 '''
 
 # Imports
@@ -18,33 +33,31 @@ from scipy.spatial import ConvexHull, distance_matrix
 # License
 ###############################################################################
 '''
-HocusPockets: Holistic Computacional Utility for Scoring Pockets
+    HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
+    Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
 
-[Federal University of Rio de Janeiro]
+    [Federal University of Rio de Janeiro]
 
-Contact info:
-Carlos Chagas Filho Institute of Biophysics
-LMDM - Laboratory for Molecular Modeling and Dynamics
-Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
-Health Sciences Centre - block G1-19
-E-mail address: luizafuruno@ufrj.br
+    Contact info:
+    Carlos Chagas Filho Institute of Biophysics
+    LMDM - Laboratory for Molecular Modeling and Dynamics
+    Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
+    Health Sciences Centre - block G1-19
+    E-mail address: luizafuruno@ufrj.br
 '''
 
 class ScoringPockets:
     def __init__(self, input_path, output_path, verbose_handler):
         """
         Initializes the CavityFinder object.
-        
         Parameters:
-        input_path      (str)  - Path to the input file or directory containing the protein structure.
-        output_path     (str)  - Path where the output will be saved.
-        verbose_handler (bool) - Object to handle verbose output.
-        
+            input_path      (str)  - Path to the input file or directory containing the protein structure.
+            output_path     (str)  - Path where the output will be saved.
+            verbose_handler (bool) - Object to handle verbose output.
         Returns:
-        None
-        
+            Nothing.
+
         Hydrophobicity values are defined based on:
         WIMLEY, W. C.; WHITE, S. H. Experimentally determined hydrophobicity scale for 
         proteins at membrane interfaces. Nature Structural Biology, 1996.
@@ -62,22 +75,26 @@ class ScoringPockets:
                 "MME": 0.23, "MSE": 0.23, "UNK": -0.17}
         
     def plot_cavity(self, coordinates, pocket_file):
-        # Criação do Convex Hull
+        """
+        Plots a 3D representation of a cavity including its convex hull and atoms.
+        Input:
+            coordinates [list] - List of 3D coordinates representing cavity atoms.
+            pocket_file [str]  - Name of the pocket file for the plot title.
+        """
         hull = ConvexHull(coordinates)
-        # Plotagem em 3D
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
-        # Plota os pontos atômicos
+        # Plot the atomic points
         coordinates = np.array(coordinates)
         ax.scatter(coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], color="blue", alpha=0.5, label="Átomos")
-        # Plota as faces do Convex Hull
+        # Plot the convex hull edges
         for simplex in hull.simplices:
-            simplex = np.append(simplex, simplex[0])  # Fecha o loop para o desenho
+            simplex = np.append(simplex, simplex[0])
             ax.plot(coordinates[simplex, 0], coordinates[simplex, 1], coordinates[simplex, 2], "k-")
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
-        plt.title(f"Visualização da Cavidade Convexa - {pocket_file}")
+        plt.title(f"Convex Cavity Visualization - {pocket_file}")
         plt.legend()
         plt.show()
 
@@ -104,56 +121,42 @@ class ScoringPockets:
                     coordinates.append([x, y, z])
                 except (ValueError, IndexError) as e:
                     print(f"Error processing line: {line.strip()} - {e}")
-
         if len(coordinates) < 4:  # At least four points are needed for a valid convex hull
             return 0, 0, 0, 0, 0, 0
-
         coordinates = np.array(coordinates)
-
         # Compute Convex Hull
         hull = ConvexHull(coordinates)
         volume = hull.volume
         surface = hull.area
-
         # Compute radius of the smallest enclosing sphere
         center = np.mean(coordinates, axis=0)
         distances = np.linalg.norm(coordinates - center, axis=1)
         radius = np.max(distances)
-
         # Compute diameter (longest pairwise distance)
         pairwise_distances = distance_matrix(coordinates, coordinates)
         diameter = np.max(pairwise_distances)
-
         # Compute smallest size (distance between closest parallel enclosing planes)
         smallest_size = np.inf
         best_planes = None
-
         for simplex in hull.simplices:
             # Get the three vertices forming the triangular face
             p1, p2, p3 = coordinates[simplex]
-
             # Compute normal vector of the triangular face
             normal = np.cross(p2 - p1, p3 - p1)
             normal /= np.linalg.norm(normal)  # Normalize the normal vector
-
             # Compute plane equation: ax + by + cz + d = 0
             d = -np.dot(normal, p1)
-
             # Compute distances of all points from this plane
             signed_distances = np.dot(coordinates, normal) + d
-
             # Identify the extreme points along the normal direction
             min_distance = np.min(signed_distances)
             max_distance = np.max(signed_distances)
-
             # Compute the plane separation distance
             plane_distance = max_distance - min_distance
-
             # Check if this is the smallest valid enclosing pair of planes
             if plane_distance < smallest_size:
                 smallest_size = plane_distance
                 best_planes = (simplex, normal, plane_distance)
-
         # Compute minimal enclosing cylinder radius
         cylinder_radius = 0
         for axis in [[1, 0, 0], [0, 1, 0], [0, 0, 1]]:  # Test cylinders aligned with x, y, z axes
@@ -162,28 +165,24 @@ class ScoringPockets:
             radius = np.max(radial_distances)
             if radius < cylinder_radius or cylinder_radius == 0:
                 cylinder_radius = radius
-
         return volume, surface, radius, diameter, smallest_size, cylinder_radius
 
     def calculate_residue_descriptors(self, residue_file):
         """
         Calculates the average hydrophobicity of residues of the pocket, 
         along with frequencies of aromatic residues and Tyr(OH) atoms.
-        
         Input:
-            residue_file [str]: Path to the residue file containing ATOM entries.
+            residue_file [str] - Path to the residue file containing ATOM entries.
         Return:
-            [tuple]: A tuple with average hydrophobicity, aromatic residue frequency, 
+            [tuple] A tuple with average hydrophobicity, aromatic residue frequency, 
                     and Tyr(OH) atom frequency.
         """
         total_hydro = 0.0
         residue_count = 0
         aromatic_count = 0
         tyr_oh_count = 0
-
-        residues_seen = set()  # Para armazenar resíduos únicos
+        residues_seen = set()
         aromatic_residues = {"PHE", "TYR", "HIS", "TRP"}
-
         with open(residue_file, 'r') as file:
             for line in file:
                 if line.startswith("ATOM"):
@@ -191,8 +190,6 @@ class ScoringPockets:
                     chain_id = line[21].strip()
                     residue_number = line[22:26].strip()
                     residue_id = (residue_name, residue_number, chain_id)
-
-                    # Contabiliza o resíduo apenas uma vez
                     if residue_id not in residues_seen:
                         residues_seen.add(residue_id)
                         residue_count += 1
@@ -200,16 +197,12 @@ class ScoringPockets:
 
                         if residue_name in aromatic_residues:
                             aromatic_count += 1
-
-                    # Verifica Tyr(OH) por átomo
                     atom_name = line[12:16].strip()
                     if residue_name == "TYR" and atom_name == "OH":
                         tyr_oh_count += 1
-
         avg_hydro = total_hydro / residue_count if residue_count > 0 else 0.0
         aromatic_freq = aromatic_count / residue_count if residue_count > 0 else 0.0
         tyr_oh_freq = tyr_oh_count / residue_count if residue_count > 0 else 0.0
-
         return avg_hydro, aromatic_freq, tyr_oh_freq
 
     @staticmethod
@@ -218,7 +211,6 @@ class ScoringPockets:
         """
         Calcula o score da cavidade com pesos ajustados e normaliza no intervalo [0,1].
         """
-        
         # Pesos ajustados (baseados em uma avaliação dos dados e impacto observado)
         weights = {
             'volume': 0.25,                # Volume teve destaque nos exemplos
@@ -231,7 +223,6 @@ class ScoringPockets:
             'aromatic_freq': 0.05,
             'otyr_freq': 0.05
         }
-
         # Score bruto calculado com base em descritores e seus pesos
         score_raw = (
             weights['volume'] * volume +
@@ -244,20 +235,14 @@ class ScoringPockets:
             weights['aromatic_freq'] * aromatic_freq +
             weights['otyr_freq'] * otyr_freq
         )
-        
         # Normalizar com base no valor máximo observado nos dados
         # Podemos calcular dinamicamente o máximo esperado (ou usar uma constante fixada de acordo com o seu caso)
         # Vamos calcular normalizando pelo maior valor de score_raw nos dados
-
         # Exemplo estático, ajuste com seus próprios dados/experimentos se necessário
         normalization_factor = 700  # Um fator aproximado baseado no máximo dos seus dados de exemplo
-        
         # Normalização para manter score entre [0,1]
         score_normalized = min(score_raw / normalization_factor, 1.0)
-
         return score_raw
-
-
     
     def save_cavity_scores(self, cavity_path, scores):
         """
@@ -304,6 +289,10 @@ class ScoringPockets:
             for cavity in cavities:
                 grid_file_path = cavity['grid_path']
                 residue_file_path = cavity['residue_path']
+                # Skip cavities without a grid file (e.g., Fukui-only cavities)
+                if grid_file_path is None:
+                    self.verbose_handler.output(f"[WARNING] Skipping cavity without grid: {residue_file_path}")
+                    continue
                 cavity_id = cavity_ids.get(grid_file_path, None)
                 # Read grid lines and calculate volume
                 with open(grid_file_path, 'r') as f:

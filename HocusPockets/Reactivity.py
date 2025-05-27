@@ -25,18 +25,18 @@ from Initialize import *
 # License
 ###############################################################################
 '''
-HocusPockets: Holistic Computacional Utility for Scoring Pockets
+    HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
+    Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
 
-[Federal University of Rio de Janeiro]
+    [Federal University of Rio de Janeiro]
 
-Contact info:
-Carlos Chagas Filho Institute of Biophysics
-LMDM - Laboratory for Molecular Modeling and Dynamics
-Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
-Health Sciences Centre - block G1-19
-E-mail address: luizafuruno@ufrj.br
+    Contact info:
+    Carlos Chagas Filho Institute of Biophysics
+    LMDM - Laboratory for Molecular Modeling and Dynamics
+    Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
+    Health Sciences Centre - block G1-19
+    E-mail address: luizafuruno@ufrj.br
 '''
 
 class Reactivity:
@@ -120,7 +120,6 @@ class Reactivity:
         with open(output_err, 'w') as f:
             process = subprocess.run(['/opt/mopac/MOPAC2016.exe', mopac_file], cwd=reactivity_dir, 
                                      stdout=subprocess.DEVNULL, stderr=f, check=True)
-        print("MOPAC return code:", process.returncode) # Para colocar os cometários no .log
         return output_aux
         
     @staticmethod
@@ -187,7 +186,7 @@ class Reactivity:
                         self.run_primordia(primordia_file, primordia_dir)
                         self.verbose_handler.output(f"[SUCCESS] Finished processing {file}")
                     except Exception as e:
-                        # Log detailed error message with file name
+                        # Log detailed  message with file name
                         self.verbose_handler.output("Fail to process {file}: {e}")
                         continue
                     

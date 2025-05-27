@@ -27,18 +27,18 @@ import subprocess
 # License
 ###############################################################################
 '''
-HocusPockets: Holistic Computacional Utility for Scoring Pockets
+    HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
+    Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
 
-[Federal University of Rio de Janeiro]
+    [Federal University of Rio de Janeiro]
 
-Contact info:
-Carlos Chagas Filho Institute of Biophysics
-LMDM - Laboratory for Molecular Modeling and Dynamics
-Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
-Health Sciences Centre - block G1-19
-E-mail address: luizafuruno@ufrj.br
+    Contact info:
+    Carlos Chagas Filho Institute of Biophysics
+    LMDM - Laboratory for Molecular Modeling and Dynamics
+    Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
+    Health Sciences Centre - block G1-19
+    E-mail address: luizafuruno@ufrj.br
 '''
 
 # Dictionary for colors
