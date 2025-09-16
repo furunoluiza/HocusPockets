@@ -104,7 +104,7 @@ def args_parse():
     parser.add_argument(
         '--similarity',
         type=float,
-        default=0.6,
+        default=0.5,
         metavar="",
         choices=[x / 100 for x in range(1, 101)],
         help='Minimum residue similarity threshold between pockets (default: 0.6)'

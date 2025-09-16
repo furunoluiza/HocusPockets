@@ -55,7 +55,7 @@ class CavityFinder:
         verbose_handler [bool]               - Object to handle verbose output.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
         distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
-        similarity      [float] DEFAULT: 0.6 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
+        similarity      [float] DEFAULT: 0.5 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
         Return:
             Nothing.
         """
@@ -94,7 +94,7 @@ class CavityFinder:
         residues_b [set] - A set of residue identifiers from the second cavity.
         Return:
             [bool] True if the similarity between the two sets of residues 
-                is greater than or equal to 0.6, otherwise False.
+                is greater than or equal to 0.5, otherwise False.
         """
         if not residues_a or not residues_b:
             return False
@@ -225,7 +225,6 @@ class CavityFinder:
                                 f"{percent:.2f}"
                             ])
 
-
     def compare_cavities(self, cavity_path):
         """
         Compares cavities across different programs (fpocket, ligsite, pocketfinder, surfnet, fukui).
@@ -349,7 +348,8 @@ class CavityFinder:
                 input_pdb_file = os.path.join(self.input_path, protein_name + ".pdb")
                 rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
                 fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
-                catalytic_cavity = CatalyticCav(program_dir, rslrd_file, input_pdb_file, fukui_file, self.verbose_handler)
+                fukushima_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukushima.pdb')
+                catalytic_cavity = CatalyticCav(program_dir, input_pdb_file, fukui_file, fukushima_file, self.verbose_handler)
                 results_fukushima, results_fukui = catalytic_cavity.compute_average()
                 catalytic_cavity.process_fukui_cav()
                 self.compare_cavities(program_dir)
@@ -371,11 +371,12 @@ class CavityFinder:
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
         rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
         fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
+        fukushima_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukushima.pdb')
         fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_file()
         concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path, protein_output_dir)
-        catalytic_cavity = CatalyticCav(cavities_output_dir, rslrd_file, self.input_path, fukui_file, self.verbose_handler)
+        catalytic_cavity = CatalyticCav(cavities_output_dir, self.input_path, fukui_file, fukushima_file, self.verbose_handler)
         results_fukushima, results_fukui = catalytic_cavity.compute_average()
         catalytic_cavity.process_fukui_cav()
         self.compare_cavities(cavities_output_dir)
@@ -407,7 +408,7 @@ class ConCavityFinder(CavityFinder):
         output_path     [str]                - Path where the Fpocket output will be saved.
         verbose_handler [bool]               - Object to handle verbose output.
         distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
-        similarity      [float] DEFAULT: 0.6 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
+        similarity      [float] DEFAULT: 0.5 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
         Return:
             Nothing.
@@ -581,7 +582,7 @@ class FpocketFinder(CavityFinder):
         output_path     [str]                - Path where the Fpocket output will be saved.
         verbose_handler [bool]               - Object to handle verbose output.
         distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
-        similarity      [float] DEFAULT: 0.6 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
+        similarity      [float] DEFAULT: 0.5 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
         fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities based on the druggability score.
         Return:
             Nothing.
