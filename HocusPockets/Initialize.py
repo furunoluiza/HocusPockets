@@ -123,6 +123,18 @@ def args_parse():
         metavar="",
         help='Sets the HOMO-LUMO energy gap limit (eV) for orbital selection in PRIMoRDIA input (default: 3)'
     )
+    parser.add_argument(
+        '--parallel',
+        action="store_true",
+        help='Enable parallel execution for reactivity calculations (default: sequential)'
+        )
+    parser.add_argument(
+        '--n-jobs',
+        type=int,
+        default=None,
+        metavar="",
+        help='Number of processes to use when running in parallel (default: all CPU cores)'
+    )
     args = parser.parse_args()
     print(description)
     return args

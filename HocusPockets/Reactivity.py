@@ -20,6 +20,7 @@
 
 # Imports
 ###############################################################################
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from Initialize import *
 
 # License
@@ -57,7 +58,7 @@ class Reactivity:
         self.output_path = output_path
         self.verbose_handler = verbose_handler
         self.eband_limit = eband_limit
-
+    
     def run_primordia(self, primordia_file, primordia_dir):
         """
         Runs PRIMoRDiA on the given input file.
@@ -153,43 +154,64 @@ class Reactivity:
             mop.write("\n".join(atom_lines))
         return mopac_file
 
-    def process_directory(self):
+    def process_directory(self, n_jobs=None, parallel=False):
         """
         Processes all .pdb protein files in the input directory and applies
         MOPAC and PRIMoRDIA calculations on each.
 
-        Input:
-            Nothing.
-        Output:
-            Creates structured output directories and files for each protein.
+        Parameters
+        ----------
+        n_jobs : int, optional
+            Number of parallel threads to use (default = number of CPU cores).
+        parallel : bool, optional
+            Whether to run tasks in parallel using threading.
         """
-        for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
+        # Collect all PDB files first
+        pdb_files = []
+        for root, _, files in os.walk(self.input_path):
             for file in files:
-                if file.endswith(('.pdb')):
-                    input_file = os.path.join(root, file)
-                    protein_name = os.path.splitext(os.path.basename(input_file))[0]
-                    protein_output_dir = os.path.join(self.output_path, protein_name)
-                    reactivity_dir = os.path.join(protein_output_dir, "reactivity")
-                    mopac_dir = os.path.join(reactivity_dir, "mopac")
-                    primordia_dir = os.path.join(reactivity_dir, "primordia")
+                if file.endswith(".pdb"):
+                    pdb_files.append(os.path.join(root, file))
+        if not pdb_files:
+            self.verbose_handler.output("[WARNING] No PDB files found.")
+            return
+        def worker(input_file):
+            """Worker that runs MOPAC and PRIMoRDIA for one protein file."""
+            protein_name = os.path.splitext(os.path.basename(input_file))[0]
+            protein_output_dir = os.path.join(self.output_path, protein_name)
+            reactivity_dir = os.path.join(protein_output_dir, "reactivity")
+            mopac_dir = os.path.join(reactivity_dir, "mopac")
+            primordia_dir = os.path.join(reactivity_dir, "primordia")
+            try:
+                os.makedirs(protein_output_dir, exist_ok=True)
+                os.makedirs(mopac_dir, exist_ok=True)
+                os.makedirs(primordia_dir, exist_ok=True)
+                self.verbose_handler.output(f"[INFO] Processing reactivity for: {input_file}")
+                mopac_file = self.create_mopac_file(input_file, mopac_dir)
+                output_aux = self.run_mopac(mopac_file, mopac_dir)
+                primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
+                self.run_primordia(primordia_file, primordia_dir)
+                self.verbose_handler.output(f"[SUCCESS] Finished processing {os.path.basename(input_file)}")
+            except Exception as e:
+                self.verbose_handler.output(f"[ERROR] Failed to process {input_file}: {e}")
+        # Run in parallel with threads
+        if parallel:
+            if n_jobs is None or n_jobs < 1:
+                import multiprocessing as mp
+                n_jobs = mp.cpu_count()
+            self.verbose_handler.output(f"[INFO] Running in parallel with {n_jobs} threads.")
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                futures = {executor.submit(worker, pdb): pdb for pdb in pdb_files}
+                for future in as_completed(futures):
                     try:
-                        # Create necessary output directories
-                        os.makedirs(protein_output_dir, exist_ok=True)
-                        os.makedirs(mopac_dir, exist_ok=True)
-                        os.makedirs(primordia_dir, exist_ok=True)
-                        # Log start of processing
-                        self.verbose_handler.output(f"[INFO] Processing file for reactivity: {input_file}")
-                        # Run MOPAC and PRIMoRDIA workflow
-                        mopac_file = self.create_mopac_file(input_file, mopac_dir)
-                        output_aux = self.run_mopac(mopac_file, mopac_dir)
-                        primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
-                        self.run_primordia(primordia_file, primordia_dir)
-                        self.verbose_handler.output(f"[SUCCESS] Finished processing {file}")
+                        future.result()
                     except Exception as e:
-                        # Log detailed  message with file name
-                        self.verbose_handler.output("Fail to process {file}: {e}")
-                        continue
-                    
+                        pdb = futures[future]
+                        self.verbose_handler.output(f"[ERROR] Exception in thread for {pdb}: {e}")
+        else:
+            self.verbose_handler.output("[INFO] Running sequentially.")
+            for pdb in pdb_files:
+                worker(pdb)
 
     def process_file(self, protein_output_dir):
         """
@@ -213,8 +235,7 @@ class Reactivity:
         self.run_primordia(primordia_file, primordia_dir)
         self.verbose_handler.output(f"[SUCCESS] Finished processing single file: {os.path.basename(self.input_path)}")
         
-    
-    def find_reactivity(self):
+    def find_reactivity(self, parallel=False, n_jobs=None):
         """
         Main method to find cavities in a file or a directory.
         Input:
@@ -226,6 +247,6 @@ class Reactivity:
         protein_output_dir = os.path.join(self.output_path, base_name)
         os.makedirs(protein_output_dir, exist_ok=True)
         if os.path.isdir(self.input_path):
-            self.process_directory()
+            self.process_directory(n_jobs=n_jobs, parallel=parallel)
         else:
             self.process_file(protein_output_dir)
