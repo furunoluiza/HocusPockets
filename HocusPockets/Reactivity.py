@@ -158,13 +158,11 @@ class Reactivity:
         """
         Processes all .pdb protein files in the input directory and applies
         MOPAC and PRIMoRDIA calculations on each.
-
-        Parameters
-        ----------
-        n_jobs : int, optional
-            Number of parallel threads to use (default = number of CPU cores).
-        parallel : bool, optional
-            Whether to run tasks in parallel using threading.
+        Input:
+            n_jobs   [int]   Number of parallel threads to use (default = number of CPU cores).
+            parallel [bool]  Whether to run tasks in parallel using threading.
+        Retun:
+            Nothing.
         """
         # Collect all PDB files first
         pdb_files = []
@@ -219,9 +217,7 @@ class Reactivity:
         Input:
             protein_output_dir [str]    Path where output directories will be created.
         Output:
-            Generates output under:
-                - <protein_output_dir>/reactivity/mopac/
-                - <protein_output_dir>/reactivity/primordia/
+            Nothing.
         """
         reactivity_dir = os.path.join(protein_output_dir, "reactivity")
         mopac_dir = os.path.join(reactivity_dir, "mopac")

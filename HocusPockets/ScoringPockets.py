@@ -206,44 +206,37 @@ class ScoringPockets:
         return avg_hydro, aromatic_freq, tyr_oh_freq
 
     @staticmethod
-    def score_cavity(volume, surface, radius, diameter, smallest_size,
-                 cylinder_radius, hydrophobicity_score, aromatic_freq, otyr_freq):
+    def score_cavity(volume, surface, diameter, smallest_size,
+                 hydrophobicity_score, aromatic_freq, otyr_freq, radius, cylinder_radius):
         """
-        Calcula o score da cavidade com pesos ajustados e normaliza no intervalo [0,1].
+        Calculates the cavity score as a simple mean of selected descriptors.
+        Descriptors included (based on observed contribution):
+        - Volume
+        - Surface
+        - Diameter
+        - Smallest size
+        - Hydrophobicity score
+        - Aromatic frequency
+        - Tyrosine frequency
+        - Radius
+        - Cylinder radius
+        Return:
+            [float] Average score of the selected descriptors.
         """
-        # Pesos ajustados (baseados em uma avaliação dos dados e impacto observado)
-        weights = {
-            'volume': 0.25,                # Volume teve destaque nos exemplos
-            'surface': 0.2,
-            'radius': 0.15,
-            'diameter': 0.1,
-            'smallest_size': 0.1,
-            'cylinder_radius': 0.1,
-            'hydrophobicity_score': 0.15,
-            'aromatic_freq': 0.05,
-            'otyr_freq': 0.05
-        }
-        # Score bruto calculado com base em descritores e seus pesos
-        score_raw = (
-            weights['volume'] * volume +
-            weights['surface'] * surface +
-            weights['radius'] * radius +
-            weights['diameter'] * diameter +
-            weights['smallest_size'] * smallest_size +
-            weights['cylinder_radius'] * cylinder_radius +
-            weights['hydrophobicity_score'] * hydrophobicity_score +
-            weights['aromatic_freq'] * aromatic_freq +
-            weights['otyr_freq'] * otyr_freq
-        )
-        # Normalizar com base no valor máximo observado nos dados
-        # Podemos calcular dinamicamente o máximo esperado (ou usar uma constante fixada de acordo com o seu caso)
-        # Vamos calcular normalizando pelo maior valor de score_raw nos dados
-        # Exemplo estático, ajuste com seus próprios dados/experimentos se necessário
-        normalization_factor = 700  # Um fator aproximado baseado no máximo dos seus dados de exemplo
-        # Normalização para manter score entre [0,1]
-        score_normalized = min(score_raw / normalization_factor, 1.0)
-        return score_raw
-    
+        values = [
+            volume,
+            surface,
+            diameter,
+            smallest_size,
+            hydrophobicity_score,
+            aromatic_freq,
+            otyr_freq,
+            radius,
+            cylinder_radius
+        ]
+        # Avoid division by zero if somehow list is empty
+        return sum(values) / len(values) if values else 0.0
+        
     def save_cavity_scores(self, cavity_path, scores):
         """
         Calculates and saves cavity scores for different programs into a text file.
@@ -300,7 +293,7 @@ class ScoringPockets:
                 volume, surface, radius, diameter, smallest_size, cylinder_radius = self.calculate_geometric_descriptors(grid_lines)
                 # Calculate other scores (e.g., hydrophobicity, polarity)
                 hydrophobicity_score, aromatic_freq, tyr_oh_freq = self.calculate_residue_descriptors(residue_file_path)
-                score = self.score_cavity(volume, surface, radius, diameter, smallest_size, cylinder_radius, hydrophobicity_score, aromatic_freq, tyr_oh_freq)
+                score = self.score_cavity(volume, surface, diameter, smallest_size, hydrophobicity_score, aromatic_freq, tyr_oh_freq, radius, cylinder_radius)
                 # Append the results to the scores list
                 scores.append({
                     'cavity_id': cavity_id,

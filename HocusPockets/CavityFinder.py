@@ -288,7 +288,7 @@ class CavityFinder:
         score_cavity.score_routine(cavity_path, program_cavities, cavity_ids)
     
 
-    def add_fukushima_scores_to_csv(self, cavity_path, fukushima_results, fukui_results, fukushima_results_no_norm):
+    def add_fukushima_scores_to_csv(self, cavity_path, fukushima_results, fukui_results, fukushima_results_no_norm, fukushima_results_sum_norm):
         """
         Adds average Fukushima, Fukui_pot_zero anf Fukushima sum scores to an existing cavity score CSV file.
         Input:
@@ -296,6 +296,7 @@ class CavityFinder:
             fukushima_results [dict]            - Dictionary mapping (program, residue_file) -> average Fukushima score.
             fukui_results [dict]                - Dictionary mapping (program, residue_file) -> average Fukui_pot_zero score.
             fukushima_results_no_norm [dict]    - Dictionary mapping (program, residue_file) -> sum of Fukushima score without normalizing by atoms number.
+            fukushima_results_sum_norm [dict]   - Dictionary mapping (program, residue_file) -> sum of Fukushima scores divided by the number of atoms with non-zero Fukushima values.
         Return:
             Nothing.
         """
@@ -326,6 +327,10 @@ class CavityFinder:
                 #Get Fukushima no norm score
                 fuku_no_norm_score = fukushima_results_no_norm(key, None)
                 row['Fukushima_Sum'] = f"{fuku_no_norm_score:.4f}" if fuku_no_norm_score is not None else ""
+                updated_rows.append(row)
+                #Get Fukushima sum normalized by the number of atoms with non-zero Fukushima values 
+                fuku_sum_norm_score = fukushima_results_sum_norm(key, None)
+                row['Fukushima_Sum_Norm'] = f"{fuku_sum_norm_score:.4f}" if fuku_sum_norm_score is not None else ""
                 updated_rows.append(row)
         # Step 4: Write the updated CSV with the new fields
         with open(csv_file, 'w', newline='', encoding='utf-8') as outfile:
@@ -382,10 +387,10 @@ class CavityFinder:
         concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path, protein_output_dir)
         catalytic_cavity = CatalyticCav(cavities_output_dir, self.input_path, fukui_file, fukushima_file, self.verbose_handler)
-        results_fukushima, results_fukui, results_fukushima_no_norm = catalytic_cavity.compute_average()
+        results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm = catalytic_cavity.compute_average()
         catalytic_cavity.process_fukui_cav()
         self.compare_cavities(cavities_output_dir)
-        self.add_fukushima_scores_to_csv(cavities_output_dir, results_fukushima, results_fukui, results_fukushima_no_norm)
+        self.add_fukushima_scores_to_csv(cavities_output_dir, results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm)
         
     
     def find_cavities(self):

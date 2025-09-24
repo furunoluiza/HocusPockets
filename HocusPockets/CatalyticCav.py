@@ -165,7 +165,8 @@ class CatalyticCav:
             Tuple:
                 - results_fukushima         [dict]: Maps (method, pocket_file) to average Fukushima value per atom.
                 - results_fukui             [dict]: Maps (method, pocket_file) to average Fukui value per atom.
-                - results_fukushima_no_norm [dict]: Maps (method, pocket_file) to no normalize Fukushima score.
+                - results_fukushima_no_norm [dict]: (program, pocket_file) -> total (non-normalized) Fukushima sum.
+                - results_fukushima_sum_norm[dict]: (program, pocket_file) -> normalized Fukushima sum.
         """
         cavity_programs = ['fpocket', 'ligsite', 'surfnet', 'pocketfinder']
         results_fukushima = {}
@@ -182,6 +183,7 @@ class CatalyticCav:
                     total_fukui = 0.0
                     total_fukushima = 0.0
                     atom_count = 0
+                    nonzero_atoms = 0
                     with open(pocket_path, 'r') as pdb:
                         for line in pdb:
                             if line.startswith("ATOM"):
@@ -192,19 +194,27 @@ class CatalyticCav:
                                 if residue_id in self.fukui_dict:
                                     total_fukui += self.fukui_dict[residue_id]
                                 if residue_id in self.fukushima_dict:
-                                    total_fukushima += self.fukushima_dict[residue_id]
+                                    val_fuku = self.fukushima_dict[residue_id]
+                                    total_fukushima += val_fuku
+                                    if val_fuku != 0.0:
+                                        nonzero_atoms += 1
                                 atom_count += 1
                     avg_fukui = total_fukui / atom_count if atom_count else None
                     avg_fukushima = total_fukushima / atom_count if atom_count else None
                     fukushima_no_norm = total_fukushima
+                    fukushima_sum_norm = (total_fukushima / nonzero_atoms if nonzero_atoms > 0 else None)
                     results_fukui[(program, pocket_file)] = avg_fukui
                     results_fukushima[(program, pocket_file)] = avg_fukushima
                     results_fukushima_no_norm[(program, pocket_file)] = fukushima_no_norm
+                    results_fukushima_sum_norm[(program, pocket_file)] = fukushima_sum_norm
                     self.verbose_handler.output(
-                        f"[INFO] {program}/{pocket_file} → Atoms: {atom_count}, "
-                        f"Avg. Fukushima: {avg_fukushima}, Avg. Fukui: {avg_fukui}"
+                    f"[INFO] {program}/{pocket_file} → Atoms: {atom_count}, "
+                        f"Avg. Fukushima: {avg_fukushima}, Avg. Fukui: {avg_fukui}, "
+                        f"Fukushima_No_Norm: {fukushima_no_norm}, "
+                        f"Fukushima_Sum_Norm: {fukushima_sum_norm}"
                     )
-        return results_fukushima, results_fukui, results_fukushima_no_norm
+
+        return results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm
 
 
     def process_fukui_cav(self):
