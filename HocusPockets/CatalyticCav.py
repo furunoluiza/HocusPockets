@@ -172,6 +172,7 @@ class CatalyticCav:
         results_fukushima = {}
         results_fukui = {}
         results_fukushima_no_norm = {}
+        results_fukushima_sum_norm = {}
         for program in cavity_programs:
             program_dir = os.path.join(self.cavities_path, program)
             if not os.path.exists(program_dir):

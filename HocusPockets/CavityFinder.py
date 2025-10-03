@@ -314,23 +314,25 @@ class CavityFinder:
                 fieldnames.append('Fukushima_Score')
             if 'Fukui_Score' not in fieldnames:
                 fieldnames.append('Fukui_Score')
+            if 'Fukushima_Sum' not in fieldnames:
+                fieldnames.append('Fukushima_Sum')
+            if 'Fukushima_Sum_Norm' not in fieldnames:
+                fieldnames.append('Fukushima_Sum_Norm')
             # Step 3: Update each row with scores if available
             for row in reader:
                 key = (row['Program'], row['Residue_File'])
                 # Get Fukushima score
-                fuku_score = fukushima_results.get(key, None)
-                row['Fukushima_Score'] = f"{fuku_score:.4f}" if fuku_score is not None else ""
+                fuku_score = fukushima_results.get(key)
+                row['Fukushima_Score'] = f"{fuku_score:.4f}" if fuku_score is not None else "0.0000"
                 # Get Fukui score
-                fukui_score = fukui_results.get(key, None)
-                row['Fukui_Score'] = f"{fukui_score:.4f}" if fukui_score is not None else ""
-                updated_rows.append(row)
+                fukui_score = fukui_results.get(key)
+                row['Fukui_Score'] = f"{fukui_score:.4f}" if fukui_score is not None else "0.0000"
                 #Get Fukushima no norm score
-                fuku_no_norm_score = fukushima_results_no_norm(key, None)
-                row['Fukushima_Sum'] = f"{fuku_no_norm_score:.4f}" if fuku_no_norm_score is not None else ""
-                updated_rows.append(row)
+                fuku_no_norm_score = fukushima_results_no_norm.get(key)
+                row['Fukushima_Sum'] = f"{fuku_no_norm_score:.4f}" if fuku_no_norm_score is not None else "0.0000"
                 #Get Fukushima sum normalized by the number of atoms with non-zero Fukushima values 
-                fuku_sum_norm_score = fukushima_results_sum_norm(key, None)
-                row['Fukushima_Sum_Norm'] = f"{fuku_sum_norm_score:.4f}" if fuku_sum_norm_score is not None else ""
+                fuku_sum_norm_score = fukushima_results_sum_norm.get(key)
+                row['Fukushima_Sum_Norm'] = f"{fuku_sum_norm_score:.4f}" if fuku_sum_norm_score is not None else "0.0000"
                 updated_rows.append(row)
         # Step 4: Write the updated CSV with the new fields
         with open(csv_file, 'w', newline='', encoding='utf-8') as outfile:

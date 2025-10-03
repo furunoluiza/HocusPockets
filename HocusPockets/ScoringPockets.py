@@ -248,16 +248,17 @@ class ScoringPockets:
             Nothing.
         """
         # Define output path early
-        protein_name = os.path.basename(os.path.dirname(cavity_path))
-        output_file = os.path.join(cavity_path, f"{protein_name}_cavity_scores.csv")
+        protein_code = os.path.basename(os.path.dirname(cavity_path))
+        output_file = os.path.join(cavity_path, f"{protein_code}_cavity_scores.csv")
         # Write results to the output file
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
+            fieldnames = ['Protein_Code', 'Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
                         'Volume', 'Radius', 'Surface', 'Diameter', 'Smallest_Size', 'Cylinder_radius', 'Hydrophobicity_Score', 'Aromatic_freq', 'Otyr_freq', 'Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=',')
             writer.writeheader()
             for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Sort by 'score'
                 writer.writerow({
+                    'Protein_Code': entry['protein_code'],
                     'Cavity_ID': entry['cavity_id'],
                     'Program': entry['program'],
                     'Grid_File': entry['grid_file'],
@@ -277,6 +278,7 @@ class ScoringPockets:
                 })
 
     def score_routine(self, cavity_path, program_cavities, cavity_ids):
+        protein_code = os.path.basename(os.path.dirname(cavity_path))
         scores = []
         for program, cavities in program_cavities.items():
             for cavity in cavities:
@@ -296,6 +298,7 @@ class ScoringPockets:
                 score = self.score_cavity(volume, surface, diameter, smallest_size, hydrophobicity_score, aromatic_freq, tyr_oh_freq, radius, cylinder_radius)
                 # Append the results to the scores list
                 scores.append({
+                    'protein_code': protein_code,
                     'cavity_id': cavity_id,
                     'program': program,
                     'grid_file': os.path.basename(grid_file_path),

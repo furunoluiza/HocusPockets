@@ -20,6 +20,8 @@
 
 # Imports
 ###############################################################################
+import gzip
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from Initialize import *
 
@@ -153,6 +155,17 @@ class Reactivity:
             mop.write(header)
             mop.write("\n".join(atom_lines))
         return mopac_file
+    
+    def compress_file(self, file_path):
+        """Compress a file with gzip and remove the original."""
+        if not os.path.isfile(file_path):
+            return None
+        gz_path = file_path + ".gz"
+        with open(file_path, 'rb') as f_in:
+            with gzip.open(gz_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(file_path)
+        return gz_path
 
     def process_directory(self, n_jobs=None, parallel=False):
         """
@@ -189,6 +202,9 @@ class Reactivity:
                 output_aux = self.run_mopac(mopac_file, mopac_dir)
                 primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
                 self.run_primordia(primordia_file, primordia_dir)
+                if output_aux and os.path.isfile(output_aux):
+                    gz_path = self.compress_file(output_aux)
+                    self.verbose_handler.output(f"[INFO] Compressed AUX file -> {gz_path}")
                 self.verbose_handler.output(f"[SUCCESS] Finished processing {os.path.basename(input_file)}")
             except Exception as e:
                 self.verbose_handler.output(f"[ERROR] Failed to process {input_file}: {e}")
@@ -229,6 +245,9 @@ class Reactivity:
         output_aux = self.run_mopac(mopac_file, mopac_dir)
         primordia_file = self.create_primordia_file(self.input_path, output_aux, primordia_dir)
         self.run_primordia(primordia_file, primordia_dir)
+        if output_aux and os.path.isfile(output_aux):
+            gz_path = self.compress_file(output_aux)
+            self.verbose_handler.output(f"[INFO] Compressed AUX file -> {gz_path}")
         self.verbose_handler.output(f"[SUCCESS] Finished processing single file: {os.path.basename(self.input_path)}")
         
     def find_reactivity(self, parallel=False, n_jobs=None):
