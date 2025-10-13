@@ -78,9 +78,16 @@ def args_parse():
         args [Namespace] - A namespace containing parsed argument values.
     """
     parser = argparse.ArgumentParser(prog='HocusPockets',
+                                    add_help=False,
                                     formatter_class=argparse.RawDescriptionHelpFormatter,
                                     description=description,
                                     epilog=epilogue)
+    parser.add_argument(
+        '-h', '--help',
+        action='help',
+        default=argparse.SUPPRESS,
+        help='Show this help message and exit.'
+    )
     parser.add_argument(
         '-i', '--input',
         required=True, 
