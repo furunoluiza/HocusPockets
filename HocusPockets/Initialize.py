@@ -64,9 +64,9 @@ description = tw.dedent("""\033[1;95m
         \033[1;0m""")
 
 epilogue = tw.dedent("""
-    Hocus Pockus generates a comprehensive dataframe containing the identified cavities, 
-    ranked by their druggability and reactivity scores, providing detailed information 
-    on each site's potential as a biological target.
+    Hocus Pockets is an automated pipeline that identifies and characterizes protein cavities
+    by integrating geometric, physicochemical, and quantum reactivity analyses,
+    enabling the ranking of potencial ligand-biding and druggable sites.
     """)
 
 def args_parse():
@@ -78,41 +78,34 @@ def args_parse():
         args [Namespace] - A namespace containing parsed argument values.
     """
     parser = argparse.ArgumentParser(prog='HocusPockets',
-                                    add_help=False,
                                     formatter_class=argparse.RawDescriptionHelpFormatter,
                                     description=description,
                                     epilog=epilogue)
-    parser.add_argument(
-        '-h', '--help',
-        action='help',
-        default=argparse.SUPPRESS,
-        help='Show this help message and exit.'
-    )
     parser.add_argument(
         '-i', '--input',
         required=True, 
         action="store",
         dest="input_path", 
-        metavar ="",
+        metavar ="PATH",
         help='Path to a file or directory contaning a protein structure in .pdb format (required!)'
     )
     parser.add_argument(
         '-o', '--output',
-        metavar="",
+        metavar="PATH",
         help='Defines the output path'
     )
     parser.add_argument(
         '--distance',
         type=float,
         default=6.0,
-        metavar="",
+        metavar="VALUE",
         help='Maximum distance between grid points and residues (default: 6.0)'
     )
     parser.add_argument(
         '--similarity',
         type=float,
         default=0.5,
-        metavar="",
+        metavar="VALUE",
         choices=[x / 100 for x in range(1, 101)],
         help='Minimum residue similarity threshold between pockets (default: 0.5)'
     )
@@ -120,14 +113,14 @@ def args_parse():
         '--fpocket-score',
         type=float,
         default=0.5,
-        metavar="",
+        metavar="VALUE",
         help='Minimum druggability score for Fpocket (default: 0.5).'
     )
     parser.add_argument(
         '--eband-limit',
         type=int,
         default=3,
-        metavar="",
+        metavar="VALUE",
         help='Sets the HOMO-LUMO energy gap limit (eV) for orbital selection in PRIMoRDIA input (default: 3)'
     )
     parser.add_argument(
@@ -139,7 +132,7 @@ def args_parse():
         '--n-jobs',
         type=int,
         default=None,
-        metavar="",
+        metavar="VALUE",
         help='Number of processes to use when running in parallel (default: all CPU cores)'
     )
     args = parser.parse_args()
