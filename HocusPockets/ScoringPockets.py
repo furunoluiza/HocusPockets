@@ -231,7 +231,9 @@ class ScoringPockets:
             smallest_size,
             hydrophobicity_score,
             aromatic_freq,
-            otyr_freq
+            otyr_freq,
+            radius,
+            cylinder_radius
         ]
         # Avoid division by zero if somehow list is empty
         return sum(values) / len(values) if values else 0.0
