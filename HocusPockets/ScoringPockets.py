@@ -99,7 +99,7 @@ class ScoringPockets:
         plt.show()
 
     @staticmethod
-    def calculate_geometric_descriptors(lines):
+    def calculate_geometric_descriptors(lines, grid_file_path):
         """
         Calculates the volume, surface area, radius, diameter, smallest size,
         and minimal enclosing cylinder for a cavity defined by atomic coordinates.
@@ -120,6 +120,7 @@ class ScoringPockets:
                     z = float(line[46:54].strip())
                     coordinates.append([x, y, z])
                 except (ValueError, IndexError) as e:
+                    print(f"Grid file:  {grid_file_path}")
                     print(f"Error processing line: {line.strip()} - {e}")
         if len(coordinates) < 4:  # At least four points are needed for a valid convex hull
             return 0, 0, 0, 0, 0, 0
@@ -234,27 +235,61 @@ class ScoringPockets:
         ]
         # Avoid division by zero if somehow list is empty
         return sum(values) / len(values) if values else 0.0
+
+    def calculate_geometric_center(self, pdb_lines):
+        """
+        Calculates the geometric center (centroid) of a cavity based on atomic coordinates.
+
+        Input:
+            pdb_lines [list] - Lines from a PDB file containing ATOM or HETATM entries.
+
+        Return:
+            [tuple] (x, y, z) - Geometric center coordinates in Ångströms.
+        """
+        coordinates = []
+        for line in pdb_lines:
+            if line.startswith("ATOM") or line.startswith("HETATM"):
+                try:
+                    x = float(line[30:38].strip())
+                    y = float(line[38:46].strip())
+                    z = float(line[46:54].strip())
+                    coordinates.append([x, y, z])
+                except (ValueError, IndexError):
+                    continue
+        if not coordinates:
+            return (0.0, 0.0, 0.0)
+        coords_np = np.array(coordinates)
+        center = np.mean(coords_np, axis=0)
+        return tuple(center)
+
         
     def save_cavity_scores(self, cavity_path, scores):
         """
-        Calculates and saves cavity scores for different programs into a text file.
+        Saves the calculated cavity scores for different programs into a CSV file.
         Input:
-            cavity_path      [str]  - The path to the directory containing the cavity data.
-            program_cavities [dict] - A dictionary with program names as keys and a list of cavities as values.
-            cavity_ids       [dict] - A dictionary mapping grid file paths to cavity IDs.
+            cavity_path [str] - Path to the directory containing the cavity data.
+            scores      [list] - List of dictionaries with cavity data and computed descriptors.
         Return:
             Nothing.
         """
-        # Define output path early
+        # Define output file path
         protein_code = os.path.basename(os.path.dirname(cavity_path))
         output_file = os.path.join(cavity_path, f"{protein_code}_cavity_scores.csv")
-        # Write results to the output file
+        # Define CSV field order, now including geometric center coordinates
+        fieldnames = [
+            'Protein_Code', 'Cavity_ID', 'Program',
+            'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
+            'Volume', 'Radius', 'Surface', 'Diameter', 'Smallest_Size',
+            'Cylinder_Radius', 'Hydrophobicity_Score', 'Aromatic_Freq', 'Otyr_Freq',
+            'Geom_Center_X', 'Geom_Center_Y', 'Geom_Center_Z', 'Geom_Center',
+            'Score'
+        ]
+        # Write to CSV
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['Protein_Code', 'Cavity_ID', 'Program', 'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
-                        'Volume', 'Radius', 'Surface', 'Diameter', 'Smallest_Size', 'Cylinder_radius', 'Hydrophobicity_Score', 'Aromatic_freq', 'Otyr_freq', 'Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=',')
             writer.writeheader()
-            for entry in sorted(scores, key=lambda item: item['score'], reverse=True):  # Sort by 'score'
+            # Sort cavities by descending score
+            for entry in sorted(scores, key=lambda item: item['score'], reverse=True):
                 writer.writerow({
                     'Protein_Code': entry['protein_code'],
                     'Cavity_ID': entry['cavity_id'],
@@ -263,17 +298,23 @@ class ScoringPockets:
                     'Residue_File': entry['residue_file'],
                     'Grid_Path': entry['grid_path'],
                     'Residue_Path': entry['residue_path'],
-                    'Volume': f"{entry['volume']:.2f}",  # Arredondado para 2 casas decimais
-                    'Radius': f"{entry['radius']:.2f}",  # Arredondado para 2 casas decimais
-                    'Surface': f"{entry['surface']:.2f}",  # Arredondado para 2 casas decimais
-                    'Diameter': f"{entry['diameter']:.2f}",  # Arredondado para 2 casas decimais
-                    'Smallest_Size': f"{entry['smallest_size']:.2f}",  # Arredondado para 2 casas decimais
-                    'Cylinder_radius': f"{entry['cylinder_radius']:.2f}",  # Arredondado para 2 casas decimais
-                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",  # Arredondado para 2 casas decimais
-                    'Aromatic_freq': f"{entry['aromatic_freq']:.2f}",  # Arredondado para 2 casas decimais
-                    'Otyr_freq': f"{entry['tyr_oh_freq']:.2f}",  # Arredondado para 2 casas decimais
-                    'Score': f"{entry['score']:.2f}"  # Arredondado para 2 casas decimais
+                    'Volume': f"{entry['volume']:.2f}",
+                    'Radius': f"{entry['radius']:.2f}",
+                    'Surface': f"{entry['surface']:.2f}",
+                    'Diameter': f"{entry['diameter']:.2f}",
+                    'Smallest_Size': f"{entry['smallest_size']:.2f}",
+                    'Cylinder_Radius': f"{entry['cylinder_radius']:.2f}",
+                    'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
+                    'Aromatic_Freq': f"{entry['aromatic_freq']:.2f}",
+                    'Otyr_Freq': f"{entry['tyr_oh_freq']:.2f}",
+                    'Geom_Center_X': f"{entry['geom_center_x']:.3f}",
+                    'Geom_Center_Y': f"{entry['geom_center_y']:.3f}",
+                    'Geom_Center_Z': f"{entry['geom_center_z']:.3f}",
+                    'Geom_Center': entry['geom_center'],  # string formatada "x, y, z"
+                    'Score': f"{entry['score']:.2f}"
                 })
+        self.verbose_handler.output(f"[INFO] Cavity scores saved to {output_file}")
+
 
     def score_routine(self, cavity_path, program_cavities, cavity_ids):
         protein_code = os.path.basename(os.path.dirname(cavity_path))
@@ -290,7 +331,10 @@ class ScoringPockets:
                 # Read grid lines and calculate volume
                 with open(grid_file_path, 'r') as f:
                     grid_lines = f.readlines()
-                volume, surface, radius, diameter, smallest_size, cylinder_radius = self.calculate_geometric_descriptors(grid_lines)
+                volume, surface, radius, diameter, smallest_size, cylinder_radius = self.calculate_geometric_descriptors(grid_lines, grid_file_path)
+                # Compute geometric center
+                geom_center = self.calculate_geometric_center(grid_lines)
+                geom_center_str = f"{geom_center[0]:.3f}, {geom_center[1]:.3f}, {geom_center[2]:.3f}"
                 # Calculate other scores (e.g., hydrophobicity, polarity)
                 hydrophobicity_score, aromatic_freq, tyr_oh_freq = self.calculate_residue_descriptors(residue_file_path)
                 score = self.score_cavity(volume, surface, diameter, smallest_size, hydrophobicity_score, aromatic_freq, tyr_oh_freq, radius, cylinder_radius)
@@ -312,6 +356,10 @@ class ScoringPockets:
                     'hydrophobicity_score': hydrophobicity_score,
                     'aromatic_freq': aromatic_freq,
                     'tyr_oh_freq': tyr_oh_freq,
+                    'geom_center_x': geom_center[0],
+                    'geom_center_y': geom_center[1],
+                    'geom_center_z': geom_center[2],
+                    'geom_center': geom_center_str,
                     'score': score
                 })
         self.save_cavity_scores(cavity_path, scores)
