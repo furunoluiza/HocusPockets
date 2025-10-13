@@ -25,7 +25,7 @@ def plot_boxplots_descriptors(summary_csv, output_dir="output_resultados"):
     descriptors = [
         "Volume", "Radius", "Surface", "Diameter", "Smallest_Size",
         "Cylinder_radius", "Hydrophobicity_Score", "Aromatic_freq",
-        "Otyr_freq", "Score", "Fukushima_Score", "Fukui_Score"
+        "Otyr_freq", "Fukushima_Score", "Fukui_Score"
     ]
 
     palette = {"Positivo": "#4caf50", "Negativo": "#ef5350"}
@@ -84,6 +84,126 @@ def plot_boxplots_descriptors(summary_csv, output_dir="output_resultados"):
         plt.close()
         print(f"[INFO] Boxplot {desc} gerado (p={pval:.4g}, {stars})")
 
+def plot_violin_descriptors(summary_csv, output_dir="output_resultados_violino"):
+    os.makedirs(output_dir, exist_ok=True)
+
+    df = pd.read_csv(summary_csv)
+    if "IsReference" not in df.columns:
+        print("[ERRO] Coluna 'IsReference' não encontrada.")
+        return
+
+    # Mapeamento para traduzir o nome das colunas no gráfico
+    # Chave: Nome da coluna no CSV (variável 'desc')
+    # Valor: Rótulo a ser usado no gráfico
+    DESCRIPTOR_LABELS = {
+        "Volume": "Volume",
+        "Radius": "Raio",
+        "Surface": "Área superficial",
+        "Diameter": "Diâmetro",
+        "Smallest_Size": "Menor dimensão",
+        "Cylinder_radius": "Raio do menor cilindro envolvente",
+        "Hydrophobicity_Score": "Hidrofobicidade média",
+        "Aromatic_freq": "Frequência de resíduos aromáticos",
+        "Otyr_freq": "Frequência de resíduos de tirosina",
+        "Fukushima_Score": "Fukushima Score",
+        "Fukui_Score": "Fukui Score"
+    }
+    
+    # As colunas que não têm tradução específica no pedido (Fukushima_Score, Fukui_Score) foram mantidas como estão.
+
+    # 1. Preparação de Dados
+    
+    # Forçar IsReference → booleano e criar coluna 'Classe'
+    df["IsReference"] = df["IsReference"].astype(str).str.lower().map(
+        {"true": True, "false": False, "1": True, "0": False}
+    ).fillna(False)
+    df["Classe"] = df["IsReference"].map({True: "Positivo", False: "Negativo"})
+
+    descriptors_to_plot = [
+        "Volume", "Radius", "Surface", "Diameter", "Smallest_Size",
+        "Cylinder_radius", "Hydrophobicity_Score", "Aromatic_freq",
+        "Otyr_freq", "Fukushima_Score", "Fukui_Score"
+    ]
+
+    palette = {"Positivo": "#4caf50", "Negativo": "#ef5350"}
+
+    # 2. Geração dos Gráficos
+    for desc in descriptors_to_plot:
+        if desc not in df.columns:
+            continue
+
+        # Obtém o rótulo traduzido para o gráfico
+        desc_label = DESCRIPTOR_LABELS.get(desc, desc)
+
+        sub = df[["Classe", desc]].dropna()
+        if sub["Classe"].nunique() < 2:
+            continue
+
+        # Separar classes para o teste t
+        drug_vals = sub[sub["Classe"] == "Positivo"][desc].values
+        non_vals = sub[sub["Classe"] == "Negativo"][desc].values
+
+        # Teste t de Student (Welch's t-test, assuming unequal variances)
+        tstat, pval = ttest_ind(drug_vals, non_vals, equal_var=False)
+        
+        # Atribuição de estrelas de significância
+        if pval < 0.001: stars = "***"
+        elif pval < 0.01: stars = "**"
+        elif pval < 0.05: stars = "*"
+        else: stars = "ns"
+
+        # 3. Plotagem do Gráfico de Violino
+        plt.figure(figsize=(6, 5))
+        
+        # Gráfico de Violino (substituindo boxplot)
+        ax = sns.violinplot(
+            x="Classe", y=desc, data=sub,
+            order=["Positivo", "Negativo"],
+            palette=palette,
+            inner="box", # Desenha um boxplot dentro do violino
+            linewidth=1.5
+        )
+        
+        # Adicionar os pontos (stripplot) para visualização da distribuição
+        sns.stripplot(
+            x="Classe", y=desc, data=sub,
+            order=["Positivo", "Negativo"],
+            color="black", size=3, jitter=True, alpha=0.4,
+            ax=ax # Garante que está no mesmo eixo
+        )
+
+        # Barra de significância (mantida)
+        max_y = sub[desc].max()
+        y_pos = max_y * 1.05
+        h = max_y * 0.03
+        
+        # Ajuste de altura para evitar sobreposição em casos extremos
+        if y_pos > ax.get_ylim()[1]:
+            ax.set_ylim(top=y_pos * 1.05)
+            
+        ax.plot([0, 0, 1, 1], [y_pos, y_pos + h, y_pos + h, y_pos], lw=1.5, c='black')
+        ax.text(0.5, y_pos + h * 1.2, stars, ha='center', va='bottom', fontsize=12)
+
+        # 4. Rótulos, Títulos e Salvamento
+        n_drug = len(drug_vals)
+        n_non = len(non_vals)
+        
+        # Título com o nome do descritor e a contagem de amostras (discreta)
+        plt.title(f"{desc_label}", fontsize=14)
+        
+        # Anotação discreta da contagem (Positivos e Negativos)
+        plt.text(0.5, 0.98, f"Positivo n={n_drug}, Negativo n={n_non}", 
+                 transform=plt.gca().transAxes,
+                 ha="center", va="top", fontsize=9, color="gray")
+        
+        plt.ylabel(desc_label)
+        plt.xlabel("Classe")
+        plt.grid(axis="y", linestyle="--", alpha=0.5)
+
+        out_file = os.path.join(output_dir, f"violinplot_{desc}.png")
+        plt.savefig(out_file, bbox_inches="tight")
+        plt.close()
+        print(f"[INFO] Gráfico de violino {desc_label} gerado (p={pval:.4g}, {stars})")
 
 def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
     os.makedirs(output_dir, exist_ok=True)
@@ -138,6 +258,8 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
 
         plt.figure(figsize=(6,6))
         plt.plot(fpr, tpr, color="navy", lw=2, label=f"AUC = {roc_auc:.2f}")
+        plt.text(0.98, 0.95, f"Total n={total_n}", transform=plt.gca().transAxes,
+                 ha="right", va="bottom", fontsize=9, color="gray")
         plt.plot([0, 1], [0, 1], color="gray", linestyle="--")
         plt.xlabel("Falsos Positivos")
         plt.ylabel("Verdadeiros Positivos")
@@ -169,6 +291,7 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
     )
 
     methods = [
+        ("Score", "Média dos descritores geométricos e físico-químicos", "classico_cumulativo_bar.png")
         ("Fukui_Score", "Fukui médio (átomos da cavidade)",  "fukui_cumulativo_bar.png"),
         ("Fukushima_Score", "Fukushima médio (átomos da cavidade)", "fukushima_cumulativo_bar.png"),
         ("Fukushima_Sum", "Fukushima total (soma bruta)", "fukushima_sum_cumulativo_bar.png"),
@@ -246,7 +369,7 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
         plt.ylim(0, 105)
         plt.title(f"{label} (acerto cumulativo Top1–Top3)")
         plt.legend(loc="upper left")
-        plt.grid(axis="y", linestyle="--", alpha=0.5)
+        plt.grid(axis="y", alpha=0.5)
 
         # N total discreto (mesmo lugar do gráfico anterior)
         plt.text(
@@ -262,7 +385,7 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
 
 
 def main(summary_csv):
-    plot_boxplots_descriptors(summary_csv)
+    plot_violin_descriptors(summary.csv)
     plot_distributions_and_roc(summary_csv)
     plot_cumulative_from_scores(summary_csv)
 
