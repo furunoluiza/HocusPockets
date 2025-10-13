@@ -362,10 +362,10 @@ class CavityFinder:
                 fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
                 fukushima_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukushima.pdb')
                 catalytic_cavity = CatalyticCav(program_dir, input_pdb_file, fukui_file, fukushima_file, self.verbose_handler)
-                results_fukushima, results_fukui, results_fukushima_no_norm = catalytic_cavity.compute_average()
+                results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm  = catalytic_cavity.compute_average()
                 catalytic_cavity.process_fukui_cav()
                 self.compare_cavities(program_dir)
-                self.add_fukushima_scores_to_csv(program_dir, results_fukushima, results_fukui, results_fukushima_no_norm)
+                self.add_fukushima_scores_to_csv(program_dir, results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm)
             except Exception as e:
                 self.verbose_handler.output(f"[WARNING] Error processing: {protein_output_dir}: {e}")
                 continue

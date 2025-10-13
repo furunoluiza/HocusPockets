@@ -107,7 +107,7 @@ def args_parse():
         default=0.5,
         metavar="",
         choices=[x / 100 for x in range(1, 101)],
-        help='Minimum residue similarity threshold between pockets (default: 0.6)'
+        help='Minimum residue similarity threshold between pockets (default: 0.5)'
     )
     parser.add_argument(
         '--fpocket-score',

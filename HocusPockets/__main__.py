@@ -61,6 +61,7 @@ class VerboseHandler:
     def output(self, message):
         if self.log_file:
             self.log_file.write(message + '\n')
+            self.log_file.flush()
 
     def close(self):
         if self.log_file:
@@ -74,7 +75,7 @@ def main():
     args = args_parse() 
     verbose_handler = VerboseHandler(args.output)
     print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
-    verify_input(args, verbose_handler)
+    #verify_input(args, verbose_handler)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
     #reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler, eband_limit=args.eband_limit)
     #reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
