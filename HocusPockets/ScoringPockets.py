@@ -314,7 +314,7 @@ class ScoringPockets:
                     'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
                     'Aromatic_Freq': f"{entry['aromatic_freq']:.2f}",
                     'Otyr_Freq': f"{entry['tyr_oh_freq']:.2f}",
-                    'Carbon_Freq': f"{entry[carbon_freq]:.2f}",
+                    'Carbon_Freq': f"{entry['carbon_freq']:.2f}",
                     'Geom_Center_X': f"{entry['geom_center_x']:.3f}",
                     'Geom_Center_Y': f"{entry['geom_center_y']:.3f}",
                     'Geom_Center_Z': f"{entry['geom_center_z']:.3f}",
