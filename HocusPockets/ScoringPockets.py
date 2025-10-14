@@ -182,6 +182,8 @@ class ScoringPockets:
         residue_count = 0
         aromatic_count = 0
         tyr_oh_count = 0
+        total_atom_count = 0
+        carbon_atom_count = 0
         residues_seen = set()
         aromatic_residues = {"PHE", "TYR", "HIS", "TRP"}
         with open(residue_file, 'r') as file:
@@ -191,20 +193,23 @@ class ScoringPockets:
                     chain_id = line[21].strip()
                     residue_number = line[22:26].strip()
                     residue_id = (residue_name, residue_number, chain_id)
+                    atom_name = line[12:16].strip()
+                    total_atom_count += 1
+                    if atom_name.startswith("C"):
+                        carbon_atom_count += 1
                     if residue_id not in residues_seen:
                         residues_seen.add(residue_id)
                         residue_count += 1
                         total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
-
                         if residue_name in aromatic_residues:
                             aromatic_count += 1
-                    atom_name = line[12:16].strip()
                     if residue_name == "TYR" and atom_name == "OH":
                         tyr_oh_count += 1
         avg_hydro = total_hydro / residue_count if residue_count > 0 else 0.0
         aromatic_freq = aromatic_count / residue_count if residue_count > 0 else 0.0
         tyr_oh_freq = tyr_oh_count / residue_count if residue_count > 0 else 0.0
-        return avg_hydro, aromatic_freq, tyr_oh_freq
+        carbon_freq = carbon_atom_count / total_atom_count if total_atom_count > 0 else 0.0
+        return avg_hydro, aromatic_freq, tyr_oh_freq, carbon_freq
 
     @staticmethod
     def score_cavity(volume, surface, diameter, smallest_size,
@@ -283,7 +288,7 @@ class ScoringPockets:
             'Grid_File', 'Residue_File', 'Grid_Path', 'Residue_Path',
             'Volume', 'Radius', 'Surface', 'Diameter', 'Smallest_Size',
             'Cylinder_Radius', 'Hydrophobicity_Score', 'Aromatic_Freq', 'Otyr_Freq',
-            'Geom_Center_X', 'Geom_Center_Y', 'Geom_Center_Z', 'Geom_Center',
+            'Carbon_Freq', 'Geom_Center_X', 'Geom_Center_Y', 'Geom_Center_Z', 'Geom_Center',
             'Score'
         ]
         # Write to CSV
@@ -309,6 +314,7 @@ class ScoringPockets:
                     'Hydrophobicity_Score': f"{entry['hydrophobicity_score']:.2f}",
                     'Aromatic_Freq': f"{entry['aromatic_freq']:.2f}",
                     'Otyr_Freq': f"{entry['tyr_oh_freq']:.2f}",
+                    'Carbon_Freq': f"{entry[carbon_freq]:.2f}",
                     'Geom_Center_X': f"{entry['geom_center_x']:.3f}",
                     'Geom_Center_Y': f"{entry['geom_center_y']:.3f}",
                     'Geom_Center_Z': f"{entry['geom_center_z']:.3f}",
@@ -338,7 +344,7 @@ class ScoringPockets:
                 geom_center = self.calculate_geometric_center(grid_lines)
                 geom_center_str = f"{geom_center[0]:.3f}, {geom_center[1]:.3f}, {geom_center[2]:.3f}"
                 # Calculate other scores (e.g., hydrophobicity, polarity)
-                hydrophobicity_score, aromatic_freq, tyr_oh_freq = self.calculate_residue_descriptors(residue_file_path)
+                hydrophobicity_score, aromatic_freq, tyr_oh_freq, carbon_freq = self.calculate_residue_descriptors(residue_file_path)
                 score = self.score_cavity(volume, surface, diameter, smallest_size, hydrophobicity_score, aromatic_freq, tyr_oh_freq, radius, cylinder_radius)
                 # Append the results to the scores list
                 scores.append({
@@ -358,6 +364,7 @@ class ScoringPockets:
                     'hydrophobicity_score': hydrophobicity_score,
                     'aromatic_freq': aromatic_freq,
                     'tyr_oh_freq': tyr_oh_freq,
+                    'carbon_freq': carbon_freq,
                     'geom_center_x': geom_center[0],
                     'geom_center_y': geom_center[1],
                     'geom_center_z': geom_center[2],

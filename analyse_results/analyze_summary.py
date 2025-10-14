@@ -385,7 +385,7 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
 
 
 def main(summary_csv):
-    plot_violin_descriptors(summary.csv)
+    plot_violin_descriptors(summary_csv)
     plot_distributions_and_roc(summary_csv)
     plot_cumulative_from_scores(summary_csv)
 
