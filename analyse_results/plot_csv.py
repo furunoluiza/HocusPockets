@@ -106,7 +106,6 @@ def build_all_cavities_summary(struct_dir, pocket_gen_dir, output_csv, threshold
             continue
 
         with open(score_file, 'r') as f:
-            print("entrou")
             reader = csv.DictReader(f, delimiter=',')
             for row in reader:
                 cav_path = row.get("Residue_Path")

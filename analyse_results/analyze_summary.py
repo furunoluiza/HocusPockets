@@ -59,12 +59,6 @@ def plot_boxplots_descriptors(summary_csv, output_dir="output_resultados"):
         for patch, label in zip(ax.patches, ["Positivo", "Negativo"]):
             patch.set_facecolor(palette[label])
 
-        sns.stripplot(
-            x="Classe", y=desc, data=sub,
-            order=["Positivo", "Negativo"],
-            color="black", size=3, jitter=True, alpha=0.5
-        )
-
         # Barra de significância
         max_y = sub[desc].max()
         y_pos = max_y * 1.05
@@ -77,7 +71,6 @@ def plot_boxplots_descriptors(summary_csv, output_dir="output_resultados"):
         plt.title(f"{desc}\n(Positivo n={n_drug}, Negativo n={n_non})")
         plt.ylabel(desc)
         plt.xlabel("Classe")
-        plt.grid(axis="y", linestyle="--", alpha=0.5)
 
         out_file = os.path.join(output_dir, f"boxplot_{desc}.png")
         plt.savefig(out_file, bbox_inches="tight")
@@ -98,15 +91,18 @@ def plot_violin_descriptors(summary_csv, output_dir="output_resultados_violino")
     DESCRIPTOR_LABELS = {
         "Volume": "Volume",
         "Radius": "Raio",
-        "Surface": "Área superficial",
+        "Surface": "Área de superfície",
         "Diameter": "Diâmetro",
         "Smallest_Size": "Menor dimensão",
-        "Cylinder_radius": "Raio do menor cilindro envolvente",
+        "Cylinder_Radius": "Raio do menor cilindro envolvente",
         "Hydrophobicity_Score": "Hidrofobicidade média",
-        "Aromatic_freq": "Frequência de resíduos aromáticos",
-        "Otyr_freq": "Frequência de resíduos de tirosina",
-        "Fukushima_Score": "Fukushima Score",
-        "Fukui_Score": "Fukui Score"
+        "Aromatic_Freq": "Frequência de resíduos aromáticos",
+        "Otyr_Freq": "Frequência de resíduos de tirosina",
+        "Carbon_Freq": "Frequência de átomos de carbono",
+        "Fukushima_Score": "Fukushima Média",
+        "Fukui_Score": "Fukui Média",
+        "Fukushima_Sum": "Fukushima Total (soma bruta)",
+        "Fukushima_Sum_Norm": "Fukushima Normalizado (átomos ativos)"
     }
     
     # As colunas que não têm tradução específica no pedido (Fukushima_Score, Fukui_Score) foram mantidas como estão.
@@ -121,9 +117,8 @@ def plot_violin_descriptors(summary_csv, output_dir="output_resultados_violino")
 
     descriptors_to_plot = [
         "Volume", "Radius", "Surface", "Diameter", "Smallest_Size",
-        "Cylinder_radius", "Hydrophobicity_Score", "Aromatic_freq",
-        "Otyr_freq", "Fukushima_Score", "Fukui_Score"
-    ]
+        "Cylinder_Radius", "Hydrophobicity_Score", "Aromatic_Freq", "Carbon_Freq",
+        "Otyr_Freq", "Fukui_Score", "Fukushima_Score", "Fukushima_Sum", "Fukushima_Sum_Norm"]
 
     palette = {"Positivo": "#4caf50", "Negativo": "#ef5350"}
 
@@ -153,33 +148,27 @@ def plot_violin_descriptors(summary_csv, output_dir="output_resultados_violino")
         else: stars = "ns"
 
         # 3. Plotagem do Gráfico de Violino
-        plt.figure(figsize=(6, 5))
+        plt.figure(figsize=(8, 6))
         
         # Gráfico de Violino (substituindo boxplot)
         ax = sns.violinplot(
             x="Classe", y=desc, data=sub,
             order=["Positivo", "Negativo"],
+            hue="Classe",
             palette=palette,
             inner="box", # Desenha um boxplot dentro do violino
-            linewidth=1.5
-        )
-        
-        # Adicionar os pontos (stripplot) para visualização da distribuição
-        sns.stripplot(
-            x="Classe", y=desc, data=sub,
-            order=["Positivo", "Negativo"],
-            color="black", size=3, jitter=True, alpha=0.4,
-            ax=ax # Garante que está no mesmo eixo
+            linewidth=1.5,
+            legend=False
         )
 
         # Barra de significância (mantida)
         max_y = sub[desc].max()
-        y_pos = max_y * 1.05
+        y_pos = max_y * 1.15
         h = max_y * 0.03
         
         # Ajuste de altura para evitar sobreposição em casos extremos
         if y_pos > ax.get_ylim()[1]:
-            ax.set_ylim(top=y_pos * 1.05)
+            ax.set_ylim(top=y_pos * 1.15)
             
         ax.plot([0, 0, 1, 1], [y_pos, y_pos + h, y_pos + h, y_pos], lw=1.5, c='black')
         ax.text(0.5, y_pos + h * 1.2, stars, ha='center', va='bottom', fontsize=12)
@@ -190,14 +179,17 @@ def plot_violin_descriptors(summary_csv, output_dir="output_resultados_violino")
         
         # Título com o nome do descritor e a contagem de amostras (discreta)
         plt.title(f"{desc_label}", fontsize=14)
+
+        p_value_str = f"p={pval:.2e}"
         
         # Anotação discreta da contagem (Positivos e Negativos)
-        plt.text(0.5, 0.98, f"Positivo n={n_drug}, Negativo n={n_non}", 
+        plt.text(0.98, 0.98, f"Positivo n={n_drug}\nNegativo n={n_non}\n{p_value_str}", 
                  transform=plt.gca().transAxes,
-                 ha="center", va="top", fontsize=9, color="gray")
+                 ha="right", va="top", fontsize=9, color="gray")
         
         plt.ylabel(desc_label)
         plt.xlabel("Classe")
+
         plt.grid(axis="y", linestyle="--", alpha=0.5)
 
         out_file = os.path.join(output_dir, f"violinplot_{desc}.png")
@@ -210,11 +202,18 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
     df = pd.read_csv(summary_csv)
     df["Grupo"] = df["IsReference"].map({True: "Positivo", False: "Negativo"})
 
-    for score_col, label_col in [("Fukui_Score", "Fukui médio (átomos da cavidade)"),
-                                 ("Fukushima_Score", "Fukushima médio (átomos da cavidade)"),
+    for score_col, label_col in [("Fukui_Score", "Fukui médio"),
+                                 ("Fukushima_Score", "Fukushima médio"),
                                  ("Fukushima_Sum", "Fukushima total (soma bruta)"),
                                  ("Fukushima_Sum_Norm", "Fukushima normalizado (átomos ativos)"),
-                                 ("Score", "Descritores clássicos")]:
+                                 ("Score", "Descritores clássicos"),
+                                 ("Carbon_Freq", "Frequência de átomos de carbono"),
+                                 ("Volume", "Volume"), ("Radius", "Raio"), ("Surface", "Área de superfície"),
+                                 ("Diameter", "Diâmetro"), ("Smallest_Size", "Menor dimensão"),
+                                 ("Cylinder_Radius", "Raio do menor cilindro envolvente"),
+                                 ("Hydrophobicity_Score", "Hidrofobicidade média"),
+                                 ("Aromatic_Freq", "Frequência de resíduos aromáticos"),
+                                 ("Otyr_Freq", "Frequência de resíduos de tirosina")]:
         if score_col not in df.columns:
             continue
 
@@ -291,9 +290,9 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
     )
 
     methods = [
-        ("Score", "Média dos descritores geométricos e físico-químicos", "classico_cumulativo_bar.png")
-        ("Fukui_Score", "Fukui médio (átomos da cavidade)",  "fukui_cumulativo_bar.png"),
-        ("Fukushima_Score", "Fukushima médio (átomos da cavidade)", "fukushima_cumulativo_bar.png"),
+        ("Score", "Média dos descritores geométricos e físico-químicos", "classico_cumulativo_bar.png"),
+        ("Fukui_Score", "Fukui médio",  "fukui_cumulativo_bar.png"),
+        ("Fukushima_Score", "Fukushima médio", "fukushima_cumulativo_bar.png"),
         ("Fukushima_Sum", "Fukushima total (soma bruta)", "fukushima_sum_cumulativo_bar.png"),
         ("Fukushima_Sum_Norm", "Fukushima normalizado (átomos ativos)", "fukushima_sum_norm_cumulativo_bar.png")
     ]
@@ -369,7 +368,6 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
         plt.ylim(0, 105)
         plt.title(f"{label} (acerto cumulativo Top1–Top3)")
         plt.legend(loc="upper left")
-        plt.grid(axis="y", alpha=0.5)
 
         # N total discreto (mesmo lugar do gráfico anterior)
         plt.text(
