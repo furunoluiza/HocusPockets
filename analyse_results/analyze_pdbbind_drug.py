@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
 
-def assign_druggability_category(kd_value):
+def classificar_drogabilidade(kd_value):
     """
-    Classify target as druggable (d), borderline (b), or non-druggable (n)
-    based on KD/KI affinity thresholds in µM.
+    Classifica o alvo como Drogável (d), Borderline (b) ou Não Drogável (n)
+    com base no valor de KD/KI em µM.
     """
     if pd.isna(kd_value):
         return np.nan
@@ -19,108 +19,141 @@ def assign_druggability_category(kd_value):
     except ValueError:
         return np.nan
 
-    # Convert from nM → µM if necessary (e.g., >10,000 nM = 10 µM)
+    # Converte nM → µM se necessário
     if kd_value > 10000:
         kd_value = kd_value / 1000.0
 
     if kd_value < 0.3:
-        return "d"  # druggable
+        return "d"
     elif kd_value <= 1.0:
-        return "b"  # borderline
+        return "b"
     else:
-        return "n"  # non-druggable
+        return "n"
 
 
-def plot_roc_one_vs_rest(df, descriptor, label, output_dir):
+def plotar_roc_multiclasse(df, descriptor, label, pasta_saida):
     """
-    Generates One-vs-Rest ROC curves for d, b, and n categories.
+    Gera curvas ROC One-vs-Rest para Drogável, Borderline e Não Drogável,
+    além de uma curva combinada (Drogável + Borderline) vs Não Drogável.
     """
-    os.makedirs(output_dir, exist_ok=True)
-    sub = df[["Category", descriptor]].dropna()
+    os.makedirs(pasta_saida, exist_ok=True)
 
-    if sub["Category"].nunique() < 2:
-        print(f"[AVISO] Descriptor {descriptor} não tem variação suficiente entre categorias.")
+    sub = df[["Categoria", descriptor]].dropna()
+    if sub["Categoria"].nunique() < 2:
+        print(f"[AVISO] O descritor {descriptor} não tem variação suficiente entre categorias.")
         return
 
     y_score = sub[descriptor].values
-    categories = ["d", "b", "n"]
-    colors = {"d": "#4caf50", "b": "#ffa726", "n": "#ef5350"}
+    classes = ["d", "b", "n"]
+    cores = {
+        "d": "#4caf50",  # verde
+        "b": "#ffa726",  # laranja
+        "n": "#ef5350",  # vermelho
+        "db": "#2196f3",  # azul (Drogável + Borderline)
+    }
+    nomes = {
+        "d": "Drogável",
+        "b": "Borderline",
+        "n": "Não Drogável",
+        "db": "Drogável + Borderline",
+    }
+
     aucs = {}
+    ns = {}
 
     plt.figure(figsize=(7, 6))
 
-    for cat in categories:
-        y_true = (sub["Category"] == cat).astype(int).values
+    # --- Curvas individuais One-vs-Rest ---
+    for cat in classes:
+        y_true = (sub["Categoria"] == cat).astype(int).values
         if len(np.unique(y_true)) < 2:
             continue
-
         fpr, tpr, _ = roc_curve(y_true, y_score)
         roc_auc = auc(fpr, tpr)
         aucs[cat] = roc_auc
+        ns[cat] = int(sum(y_true))
+        plt.plot(fpr, tpr, lw=2, color=cores[cat],
+                 label=f"{nomes[cat]} (AUC={roc_auc:.2f}, N={ns[cat]})")
 
-        plt.plot(fpr, tpr, lw=2, color=colors[cat], label=f"{cat.upper()} (AUC={roc_auc:.2f})")
+    # --- Curva Drogável + Borderline vs Não Drogável ---
+    y_true_db = sub["Categoria"].isin(["d", "b"]).astype(int).values
+    if len(np.unique(y_true_db)) > 1:
+        fpr_db, tpr_db, _ = roc_curve(y_true_db, y_score)
+        auc_db = auc(fpr_db, tpr_db)
+        aucs["db"] = auc_db
+        ns["db"] = int(sum(y_true_db))
+        plt.plot(fpr_db, tpr_db, lw=2, color=cores["db"],
+                 label=f"{nomes['db']} (AUC={auc_db:.2f}, N={ns['db']})")
 
+    # --- Gráfico base ---
     plt.plot([0, 1], [0, 1], color="gray", linestyle="--", lw=1)
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"ROC One-vs-Rest — {label}")
-    plt.legend(loc="lower right")
+    plt.xlabel("Taxa de Falsos Positivos", fontsize=12)
+    plt.ylabel("Taxa de Verdadeiros Positivos", fontsize=12)
+    plt.title(f"Curvas ROC (Um contra o Resto)\nDescritor: {label}", fontsize=13)
+    plt.legend(loc="lower right", fontsize=9)
     plt.tight_layout()
 
-    out_path = os.path.join(output_dir, f"roc_ovr_{descriptor}.png")
-    plt.savefig(out_path, dpi=300)
+    caminho_saida = os.path.join(pasta_saida, f"roc_multiclasse_{descriptor}.png")
+    plt.savefig(caminho_saida, dpi=300)
     plt.close()
 
+    # --- Impressão dos resultados ---
     if aucs:
-        macro_auc = np.mean(list(aucs.values()))
-        print(f"[INFO] {descriptor}: Macro-AUC={macro_auc:.3f}  "
-              f"(d={aucs.get('d', np.nan):.3f}, b={aucs.get('b', np.nan):.3f}, n={aucs.get('n', np.nan):.3f})")
+        macro_auc = np.mean([v for k, v in aucs.items() if k != "db"])
+        print(f"\n[RESULTADO] {descriptor} ({label})")
+        for k in ["d", "b", "n", "db"]:
+            if k in aucs:
+                print(f" - {nomes[k]:<22} → AUC={aucs[k]:.3f}, N={ns[k]}")
+        print(f"   Média (macro-AUC): {macro_auc:.3f}")
 
 
-def main(summary_file):
+def main(arquivo_planilha):
+    # Detecta extensão e carrega
+    if arquivo_planilha.endswith(".xlsx"):
+        df = pd.read_excel(arquivo_planilha)
+    else:
+        df = pd.read_csv(arquivo_planilha)
 
-    df = pd.read_excel(summary_file)
-
-    # Detect KD/KI column, considering µ or u
-    possible_cols = ["kd/ki (µM)", "kd/ki (uM)", "KD/Ki (µM)", "KD/Ki (uM)"]
-    found_col = None
+    # Detecta coluna de afinidade (µM ou uM)
+    colunas_possiveis = ["kd/ki (µM)", "kd/ki (uM)", "KD/Ki (µM)", "KD/Ki (uM)"]
+    coluna_afinidade = None
     for col in df.columns:
-        if any(alt.lower() == col.lower() for alt in possible_cols):
-            found_col = col
+        if any(alt.lower() == col.lower() for alt in colunas_possiveis):
+            coluna_afinidade = col
             break
 
-    if found_col is None:
-        print("[ERRO] Coluna de KD/KI não encontrada (esperado 'kd/ki (µM)' ou 'kd/ki (uM)').")
-        print("Colunas detectadas:", list(df.columns))
+    if coluna_afinidade is None:
+        print("[ERRO] Nenhuma coluna de KD/KI encontrada ('kd/ki (µM)' ou 'kd/ki (uM)').")
+        print("Colunas disponíveis:", list(df.columns))
         sys.exit(1)
     else:
-        print(f"[INFO] Coluna de afinidade detectada: '{found_col}'")
+        print(f"[INFO] Coluna de afinidade detectada: '{coluna_afinidade}'")
 
-    # Classify based on KD/KI
-    df["Category"] = df[found_col].apply(assign_druggability_category)
-    print("\n[INFO] Contagem de classes:")
-    print(df["Category"].value_counts(dropna=False))
+    # Classificação
+    df["Categoria"] = df[coluna_afinidade].apply(classificar_drogabilidade)
+    print("\n[INFO] Distribuição das categorias:")
+    print(df["Categoria"].value_counts(dropna=False))
 
-    # Descriptor columns present in your data
-    DESCRIPTORS = {
+    # Descritores
+    DESCRITORES = {
         "Avg_Fukui": "Fukui médio",
         "Avg_Fukushima": "Fukushima médio",
         "Fukushima_NoNorm": "Fukushima total (soma bruta)",
         "Fukushima_SumNorm": "Fukushima normalizado (átomos ativos)",
     }
 
-    out_dir = "output_druggability_ovr"
-    os.makedirs(out_dir, exist_ok=True)
+    pasta_saida = "output_druggability_multiclasse"
+    os.makedirs(pasta_saida, exist_ok=True)
 
-    for desc, label in DESCRIPTORS.items():
+    for desc, label in DESCRITORES.items():
         if desc in df.columns:
-            plot_roc_one_vs_rest(df, desc, label, out_dir)
+            plotar_roc_multiclasse(df, desc, label, pasta_saida)
         else:
-            print(f"[AVISO] Coluna {desc} não encontrada no arquivo.")
+            print(f"[AVISO] Coluna {desc} não encontrada na planilha.")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Uso: python analyze_pdbbind_drug_multiclass.py <pdbbind_descriptors.xlsx>")
+        print("Uso: python analyze_pdbbind_drug_multiclasse.py <planilha_pdbbind.xlsx>")
         sys.exit(1)
     main(sys.argv[1])
