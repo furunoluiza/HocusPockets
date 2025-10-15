@@ -10,9 +10,9 @@ import seaborn as sns
 from sklearn.metrics import roc_curve, auc
 
 
-# =============================
-# 1️⃣ CLASSIFICAÇÃO DE ALVOS
-# =============================
+# ============================================================
+# CLASSIFICAÇÃO BASEADA EM KD/KI
+# ============================================================
 def classificar_drogabilidade(kd_value):
     """Classifica o alvo como Drogável (d), Borderline (b) ou Não Drogável (n) com base em KD/KI (µM)."""
     if pd.isna(kd_value):
@@ -21,11 +21,9 @@ def classificar_drogabilidade(kd_value):
         kd_value = float(kd_value)
     except ValueError:
         return np.nan
-
     # Converte nM → µM, se necessário
     if kd_value > 10000:
         kd_value /= 1000.0
-
     if kd_value < 0.3:
         return "d"  # Drogável
     elif kd_value <= 1.0:
@@ -34,34 +32,87 @@ def classificar_drogabilidade(kd_value):
         return "n"  # Não Drogável
 
 
-# =============================
-# 2️⃣ GRÁFICOS ROC
-# =============================
-def plotar_roc(df, y_true, y_score, titulo, nome_saida, pasta, cor, label_legenda, n_pos, n_neg):
-    """Função genérica para plotar uma curva ROC."""
-    fpr, tpr, _ = roc_curve(y_true, y_score)
-    roc_auc = auc(fpr, tpr)
+# ============================================================
+# GRÁFICO ROC MULTICLASSE
+# ============================================================
+def plotar_roc_multiclasse(df, descriptor, label, pasta_saida):
+    """Plota as 3 curvas ROC (d, b, n vs resto) no mesmo gráfico."""
+    sub = df[["Categoria", descriptor]].dropna()
+    if sub.empty:
+        print(f"[AVISO] Sem dados válidos para {descriptor}.")
+        return
 
-    plt.figure(figsize=(6, 6))
-    plt.plot(fpr, tpr, color=cor, lw=2,
-             label=f"{label_legenda} (AUC={roc_auc:.2f}, N+={n_pos}, N-={n_neg})")
+    cores = {"d": "#4caf50", "b": "#ffa726", "n": "#ef5350"}
+    nomes = {"d": "Drogável", "b": "Borderline", "n": "Não Drogável"}
+
+    plt.figure(figsize=(7, 6))
+    aucs = {}
+
+    for cat in ["d", "b", "n"]:
+        y_true = (sub["Categoria"] == cat).astype(int)
+        y_score = sub[descriptor]
+        if len(np.unique(y_true)) < 2:
+            continue
+        fpr, tpr, _ = roc_curve(y_true, y_score)
+        roc_auc = auc(fpr, tpr)
+        aucs[cat] = roc_auc
+        n_pos = int(sum(y_true))
+        n_neg = int(len(y_true) - n_pos)
+        plt.plot(fpr, tpr, lw=2, color=cores[cat],
+                 label=f"{nomes[cat]} (AUC={roc_auc:.2f}, N+={n_pos}, N-={n_neg})")
+
     plt.plot([0, 1], [0, 1], color="gray", lw=1)
     plt.xlabel("Taxa de Falsos Positivos")
     plt.ylabel("Taxa de Verdadeiros Positivos")
-    plt.title(titulo)
+    plt.title(f"Curvas ROC — Multiclasse (Um contra o Resto)\nDescritor: {label}")
     plt.legend(loc="lower right", fontsize=9)
     plt.tight_layout()
-    plt.savefig(os.path.join(pasta, nome_saida), dpi=300)
+    out_path = os.path.join(pasta_saida, f"roc_multiclasse_{descriptor}.png")
+    plt.savefig(out_path, dpi=300)
     plt.close()
-    return roc_auc
+    print(f"[OK] Gráfico multiclasse salvo: {out_path}")
 
 
-# =============================
-# 3️⃣ GRÁFICO DE DENSIDADE
-# =============================
-def plotar_densidade(df, descriptor, label, pasta_saida):
-    """Gráfico de densidade por categoria, sem preenchimento."""
+# ============================================================
+# GRÁFICO ROC BINÁRIO (D vs N)
+# ============================================================
+def plotar_roc_drogavel_vs_nao(df, descriptor, label, pasta_saida):
+    """Plota ROC binária: Drogável vs Não Drogável (sem borderline)."""
+    sub = df[df["Categoria"].isin(["d", "n"])][["Categoria", descriptor]].dropna()
+    if sub.empty:
+        print(f"[AVISO] Sem dados válidos para D vs N em {descriptor}.")
+        return
+
+    y_true = (sub["Categoria"] == "d").astype(int)
+    y_score = sub[descriptor]
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    roc_auc = auc(fpr, tpr)
+    n_pos = int(sum(y_true))
+    n_neg = int(len(y_true) - n_pos)
+
+    plt.figure(figsize=(7, 6))
+    plt.plot(fpr, tpr, lw=2, color="#2e7d32",
+             label=f"Drogável vs Não Drogável (AUC={roc_auc:.2f}, N+={n_pos}, N-={n_neg})")
+    plt.plot([0, 1], [0, 1], color="gray", lw=1)
+    plt.xlabel("Taxa de Falsos Positivos")
+    plt.ylabel("Taxa de Verdadeiros Positivos")
+    plt.title(f"Curva ROC — Drogável vs Não Drogável\nDescritor: {label}")
+    plt.legend(loc="lower right", fontsize=9)
+    plt.tight_layout()
+    out_path = os.path.join(pasta_saida, f"roc_drogavel_vs_nao_{descriptor}.png")
+    plt.savefig(out_path, dpi=300)
+    plt.close()
+    print(f"[OK] Gráfico D vs N salvo: {out_path}")
+
+
+# ============================================================
+# GRÁFICO DE DENSIDADE
+# ============================================================
+def plotar_densidade(df, descriptor, label, pasta_saida, binario=False):
+    """Plota gráfico de densidade (sem preenchimento), com legenda e N."""
     sub = df[["Categoria", descriptor]].dropna()
+    if binario:
+        sub = sub[sub["Categoria"].isin(["d", "n"])]
 
     categorias = {
         "d": "Drogável",
@@ -75,19 +126,27 @@ def plotar_densidade(df, descriptor, label, pasta_saida):
         subset = sub[sub["Categoria"] == cat][descriptor]
         if len(subset) == 0:
             continue
-        sns.kdeplot(subset, color=cores[cat], lw=2, label=f"{nome} (N={len(subset)})", fill=False)
+        sns.kdeplot(subset, color=cores[cat], lw=2, fill=False,
+                    label=f"{nome} (N={len(subset)})")
     plt.xlabel(label)
     plt.ylabel("Densidade de probabilidade")
-    plt.title(f"Distribuição dos valores — {label}")
+    titulo = f"Distribuição dos valores — {label}"
+    if binario:
+        titulo += "\n(Drogável vs Não Drogável)"
+    plt.title(titulo)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(os.path.join(pasta_saida, f"densidade_{descriptor}.png"), dpi=300)
+
+    suffix = "_binary" if binario else "_multiclasse"
+    out_path = os.path.join(pasta_saida, f"densidade{suffix}_{descriptor}.png")
+    plt.savefig(out_path, dpi=300)
     plt.close()
+    print(f"[OK] Gráfico de densidade salvo: {out_path}")
 
 
-# =============================
-# 4️⃣ EXECUÇÃO PRINCIPAL
-# =============================
+# ============================================================
+# MAIN
+# ============================================================
 def main(planilha):
     print(f"[INICIANDO] Lendo arquivo: {planilha}")
     if not os.path.exists(planilha):
@@ -100,7 +159,7 @@ def main(planilha):
     else:
         df = pd.read_csv(planilha)
 
-    # Detecta coluna de KD/KI
+    # Detecta coluna KD/KI
     colunas_possiveis = ["kd/ki (µM)", "kd/ki (uM)", "KD/Ki (µM)", "KD/Ki (uM)"]
     col_afinidade = next((c for c in df.columns if any(alt.lower() == c.lower() for alt in colunas_possiveis)), None)
     if col_afinidade is None:
@@ -129,59 +188,13 @@ def main(planilha):
             continue
         print(f"\n[PROCESSANDO] {desc} ({label})")
 
-        sub = df[["Categoria", desc]].dropna()
+        # ROC multiclasse
+        plotar_roc_multiclasse(df, desc, label, pasta_saida)
+        plotar_densidade(df, desc, label, pasta_saida, binario=False)
 
-        # 1️⃣ ROC Multiclasse (d, b, n)
-        for cat, nome, cor in [
-            ("d", "Drogável", "#4caf50"),
-            ("b", "Borderline", "#ffa726"),
-            ("n", "Não Drogável", "#ef5350")
-        ]:
-            y_true = (sub["Categoria"] == cat).astype(int)
-            y_score = sub[desc]
-            n_pos = int(sum(y_true))
-            n_neg = int(len(y_true) - n_pos)
-            if n_pos > 1 and n_neg > 1:
-                auc_val = plotar_roc(
-                    df, y_true, y_score,
-                    f"Curva ROC — {nome} vs Resto\nDescritor: {label}",
-                    f"roc_{cat}_vs_resto_{desc}.png",
-                    pasta_saida, cor, nome, n_pos, n_neg
-                )
-                print(f"   {nome}: AUC={auc_val:.3f}, N+={n_pos}, N-={n_neg}")
-
-        # 2️⃣ Drogável + Borderline vs Não Drogável
-        sub_db = sub[sub["Categoria"].isin(["d", "b", "n"])]
-        y_true_db = sub_db["Categoria"].isin(["d", "b"]).astype(int)
-        y_score_db = sub_db[desc]
-        n_pos_db = int(sum(y_true_db))
-        n_neg_db = int(len(y_true_db) - n_pos_db)
-        if n_pos_db > 1 and n_neg_db > 1:
-            auc_val = plotar_roc(
-                df, y_true_db, y_score_db,
-                f"Curva ROC — Drogável + Borderline vs Não Drogável\nDescritor: {label}",
-                f"roc_drogavel_borderline_vs_nao_{desc}.png",
-                pasta_saida, "#2196f3", "Drogável + Borderline", n_pos_db, n_neg_db
-            )
-            print(f"   Drogável+Borderline: AUC={auc_val:.3f}, N+={n_pos_db}, N-={n_neg_db}")
-
-        # 3️⃣ Drogável vs Não Drogável (eliminação dos borderline)
-        sub_dn = sub[sub["Categoria"].isin(["d", "n"])]
-        y_true_dn = (sub_dn["Categoria"] == "d").astype(int)
-        y_score_dn = sub_dn[desc]
-        n_pos_dn = int(sum(y_true_dn))
-        n_neg_dn = int(len(y_true_dn) - n_pos_dn)
-        if n_pos_dn > 1 and n_neg_dn > 1:
-            auc_val = plotar_roc(
-                df, y_true_dn, y_score_dn,
-                f"Curva ROC — Drogável vs Não Drogável\nDescritor: {label}",
-                f"roc_drogavel_vs_nao_{desc}.png",
-                pasta_saida, "#2e7d32", "Drogável", n_pos_dn, n_neg_dn
-            )
-            print(f"   Drogável vs Não Drogável: AUC={auc_val:.3f}, N+={n_pos_dn}, N-={n_neg_dn}")
-
-        # 4️⃣ Gráfico de densidade
-        plotar_densidade(df, desc, label, pasta_saida)
+        # ROC binária (D vs N)
+        plotar_roc_drogavel_vs_nao(df, desc, label, pasta_saida)
+        plotar_densidade(df, desc, label, pasta_saida, binario=True)
 
     print("\n✅ [CONCLUÍDO] Todos os gráficos foram gerados em:", pasta_saida)
 
