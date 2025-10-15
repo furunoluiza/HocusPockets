@@ -10,118 +10,85 @@ import seaborn as sns
 from sklearn.metrics import roc_curve, auc
 
 
+# ==========================================================
+# CLASSIFICAÇÃO DOS ALVOS PELA AFINIDADE KD/KI
+# ==========================================================
 def classificar_drogabilidade(kd_value):
-    """Classifica o alvo como Drogável (d), Borderline (b) ou Não Drogável (n) com base em KD/KI (µM)."""
+    """Classifica o alvo como Drogável (d), Borderline (b) ou Não Drogável (n)."""
     if pd.isna(kd_value):
         return np.nan
     try:
         kd_value = float(kd_value)
     except ValueError:
         return np.nan
-    if kd_value > 10000:  # conversão nM → µM
+    # Converte nM → µM, se necessário
+    if kd_value > 10000:
         kd_value /= 1000.0
     if kd_value < 0.3:
-        return "d"
+        return "d"  # Drogável
     elif kd_value <= 1.0:
-        return "b"
+        return "b"  # Borderline
     else:
-        return "n"
+        return "n"  # Não Drogável
 
 
-def plotar_roc_multiclasse(df, descriptor, label, pasta_saida):
-    """Curvas ROC One-vs-Rest (d, b, n)."""
-    sub = df[["Categoria", descriptor]].dropna()
+# ==========================================================
+# FUNÇÃO DE PLOTAGEM DA CURVA ROC BINÁRIA
+# ==========================================================
+def plotar_roc_binaria(sub, classe_pos, classe_neg, descriptor, label, pasta_saida, nome_fig):
+    """Gera uma curva ROC comparando duas classes específicas."""
     if sub.empty:
-        print(f"[AVISO] Sem dados válidos para {descriptor}.")
+        print(f"[AVISO] Nenhum dado disponível para {nome_fig}.")
         return
 
+    # Define as classes de interesse
+    sub = sub[sub["Categoria"].isin([classe_pos, classe_neg])].dropna()
+    if sub.empty:
+        print(f"[AVISO] Nenhum dado válido para {classe_pos} vs {classe_neg} em {descriptor}.")
+        return
+
+    y_true = (sub["Categoria"] == classe_pos).astype(int).values
     y_score = sub[descriptor].values
+
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    roc_auc = auc(fpr, tpr)
+
+    N_pos = int(sum(y_true))
+    N_neg = int(len(y_true) - N_pos)
+
+    # Mapeia as cores e nomes
     cores = {"d": "#4caf50", "b": "#ffa726", "n": "#ef5350"}
     nomes = {"d": "Drogável", "b": "Borderline", "n": "Não Drogável"}
 
     plt.figure(figsize=(7, 6))
-    for cat in ["d", "b", "n"]:
-        y_true = (sub["Categoria"] == cat).astype(int).values
-        if len(np.unique(y_true)) < 2:
-            continue
-        fpr, tpr, _ = roc_curve(y_true, y_score)
-        roc_auc = auc(fpr, tpr)
-        N = int(sum(y_true))
-        plt.plot(fpr, tpr, lw=2, color=cores[cat],
-                 label=f"{nomes[cat]} (AUC={roc_auc:.2f}, N={N})")
-
+    plt.plot(fpr, tpr, lw=2, color=cores[classe_pos],
+             label=f"{nomes[classe_pos]} (AUC={roc_auc:.2f}, N={N_pos})")
     plt.plot([0, 1], [0, 1], color="gray", linestyle="--")
     plt.xlabel("Taxa de Falsos Positivos")
     plt.ylabel("Taxa de Verdadeiros Positivos")
-    plt.title(f"Curvas ROC (Um contra o Resto)\nDescritor: {label}")
-    plt.legend(loc="lower right")
+    plt.title(f"Curva ROC — {nomes[classe_pos]} vs {nomes[classe_neg]}\nDescritor: {label}")
+    plt.legend(loc="lower right", fontsize=10)
     plt.tight_layout()
 
-    out_path = os.path.join(pasta_saida, f"roc_multiclasse_{descriptor}.png")
-    plt.savefig(out_path, dpi=300)
+    caminho = os.path.join(pasta_saida, f"roc_{nome_fig}_{descriptor}.png")
+    plt.savefig(caminho, dpi=300)
     plt.close()
-    print(f"[OK] Gráfico salvo: {out_path}")
+
+    print(f"[OK] Curva ROC salva: {caminho}")
+    print(f"     AUC={roc_auc:.3f} | N({nomes[classe_pos]})={N_pos} | N({nomes[classe_neg]})={N_neg}")
 
 
-def plotar_roc_drogavel_borderline_vs_nao(df, descriptor, label, pasta_saida):
-    """Curva ROC (D+B) vs N."""
-    sub = df[df["Categoria"].isin(["d", "b", "n"])][["Categoria", descriptor]].dropna()
-    if sub.empty:
-        print(f"[AVISO] Sem dados para (D+B) vs N em {descriptor}.")
-        return
-    y_true = sub["Categoria"].isin(["d", "b"]).astype(int).values
-    y_score = sub[descriptor].values
-    fpr, tpr, _ = roc_curve(y_true, y_score)
-    roc_auc = auc(fpr, tpr)
-    N = int(sum(y_true))
-
-    plt.figure(figsize=(7, 6))
-    plt.plot(fpr, tpr, lw=2, color="#2196f3", label=f"Drogável + Borderline (AUC={roc_auc:.2f}, N={N})")
-    plt.plot([0, 1], [0, 1], color="gray", linestyle="--")
-    plt.xlabel("Taxa de Falsos Positivos")
-    plt.ylabel("Taxa de Verdadeiros Positivos")
-    plt.title(f"Curva ROC — Drogável + Borderline vs Não Drogável\nDescritor: {label}")
-    plt.legend(loc="lower right")
-    plt.tight_layout()
-    out_path = os.path.join(pasta_saida, f"roc_drogavel_borderline_vs_nao_{descriptor}.png")
-    plt.savefig(out_path, dpi=300)
-    plt.close()
-    print(f"[OK] Gráfico salvo: {out_path}")
-
-
-def plotar_roc_drogavel_vs_nao(df, descriptor, label, pasta_saida):
-    """Curva ROC binária pura: Drogável vs Não Drogável."""
-    sub = df[df["Categoria"].isin(["d", "n"])][["Categoria", descriptor]].dropna()
-    if sub.empty:
-        print(f"[AVISO] Sem dados para (D vs N) em {descriptor}.")
-        return
-    y_true = (sub["Categoria"] == "d").astype(int).values
-    y_score = sub[descriptor].values
-    fpr, tpr, _ = roc_curve(y_true, y_score)
-    roc_auc = auc(fpr, tpr)
-    N = int(sum(y_true))
-
-    plt.figure(figsize=(7, 6))
-    plt.plot(fpr, tpr, lw=2, color="#4caf50", label=f"Drogável vs Não Drogável (AUC={roc_auc:.2f}, N={N})")
-    plt.plot([0, 1], [0, 1], color="gray", linestyle="--")
-    plt.xlabel("Taxa de Falsos Positivos")
-    plt.ylabel("Taxa de Verdadeiros Positivos")
-    plt.title(f"Curva ROC — Drogável vs Não Drogável\nDescritor: {label}")
-    plt.legend(loc="lower right")
-    plt.tight_layout()
-    out_path = os.path.join(pasta_saida, f"roc_drogavel_vs_nao_{descriptor}.png")
-    plt.savefig(out_path, dpi=300)
-    plt.close()
-    print(f"[OK] Gráfico salvo: {out_path}")
-
-
+# ==========================================================
+# FUNÇÃO DE PLOTAGEM DA DENSIDADE (KDE)
+# ==========================================================
 def plotar_densidade(df, descriptor, label, pasta_saida):
-    """Gráfico de densidade das distribuições."""
+    """Gera o gráfico de densidade (sobreposição das distribuições por categoria)."""
     sub = df[["Categoria", descriptor]].dropna()
     if sub.empty:
-        print(f"[AVISO] Sem dados para densidade de {descriptor}.")
+        print(f"[AVISO] Nenhum dado para densidade de {descriptor}.")
         return
-    plt.figure(figsize=(7, 5))
+
+    plt.figure(figsize=(8, 5))
     sns.kdeplot(
         data=sub,
         x=descriptor,
@@ -129,18 +96,36 @@ def plotar_densidade(df, descriptor, label, pasta_saida):
         fill=True,
         common_norm=False,
         palette={"d": "#4caf50", "b": "#ffa726", "n": "#ef5350"},
-        alpha=0.5
+        alpha=0.4,
     )
+
+    # Adiciona linhas verticais nas médias
+    medias = sub.groupby("Categoria")[descriptor].mean()
+    for cat, media in medias.items():
+        cor = {"d": "#4caf50", "b": "#ffa726", "n": "#ef5350"}[cat]
+        plt.axvline(media, color=cor, linestyle="--", lw=1.5)
+
+    nomes_legenda = {
+        "d": "Drogável",
+        "b": "Borderline",
+        "n": "Não Drogável"
+    }
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.legend(handles, [nomes_legenda.get(lbl, lbl) for lbl in labels], fontsize=10)
+
     plt.xlabel(label)
     plt.ylabel("Densidade de probabilidade")
-    plt.title(f"Distribuição dos valores — {label}")
+    plt.title(f"Distribuição dos valores do descritor — {label}")
     plt.tight_layout()
-    out_path = os.path.join(pasta_saida, f"densidade_{descriptor}.png")
-    plt.savefig(out_path, dpi=300)
+    caminho = os.path.join(pasta_saida, f"densidade_{descriptor}.png")
+    plt.savefig(caminho, dpi=300)
     plt.close()
-    print(f"[OK] Gráfico salvo: {out_path}")
+    print(f"[OK] Gráfico de densidade salvo: {caminho}")
 
 
+# ==========================================================
+# FUNÇÃO PRINCIPAL
+# ==========================================================
 def main(planilha):
     print(f"[INICIANDO] Arquivo: {planilha}")
     if not os.path.exists(planilha):
@@ -173,25 +158,39 @@ def main(planilha):
         "Fukushima_SumNorm": "Fukushima normalizado (átomos ativos)",
     }
 
-    pasta_saida = "output_druggability_final"
+    pasta_saida = "output_druggability_comparacoes"
     os.makedirs(pasta_saida, exist_ok=True)
 
     for desc, label in descritores.items():
         if desc not in df.columns:
-            print(f"[AVISO] Coluna {desc} não encontrada no arquivo.")
+            print(f"[AVISO] Coluna {desc} não encontrada.")
             continue
+
         print(f"\n[PROCESSANDO] {desc} ({label})")
-        plotar_roc_multiclasse(df, desc, label, pasta_saida)
-        plotar_roc_drogavel_borderline_vs_nao(df, desc, label, pasta_saida)
-        plotar_roc_drogavel_vs_nao(df, desc, label, pasta_saida)
+
+        # 1️⃣ Densidade
         plotar_densidade(df, desc, label, pasta_saida)
+
+        # 2️⃣ Drogável vs Borderline
+        plotar_roc_binaria(df, "d", "b", desc, label, pasta_saida, "drogavel_vs_borderline")
+
+        # 3️⃣ Drogável + Borderline vs Não Drogável
+        df_db = df.copy()
+        df_db["Categoria"] = df_db["Categoria"].replace({"b": "d"})
+        plotar_roc_binaria(df_db, "d", "n", desc, label, pasta_saida, "drogavel_borderline_vs_nao")
+
+        # 4️⃣ Drogável vs Não Drogável (eliminação de borderline)
+        df_puro = df[df["Categoria"].isin(["d", "n"])]
+        plotar_roc_binaria(df_puro, "d", "n", desc, label, pasta_saida, "drogavel_vs_nao")
 
     print("\n[CONCLUÍDO] Todos os gráficos foram gerados em:", pasta_saida)
 
 
+# ==========================================================
+# EXECUÇÃO PRINCIPAL
+# ==========================================================
 if __name__ == "__main__":
-    print("[DEBUG] Entrando no bloco principal.")
     if len(sys.argv) != 2:
-        print("Uso: python analyze_druggability_final.py <planilha_pdbbind.xlsx>")
+        print("Uso: python analyze_druggability_comparacoes.py <planilha_pdbbind.xlsx>")
         sys.exit(1)
     main(sys.argv[1])
