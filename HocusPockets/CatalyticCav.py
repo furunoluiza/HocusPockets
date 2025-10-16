@@ -93,44 +93,48 @@ class CatalyticCav:
 
     def load_bfactor_values(self, pdb_file, descriptor_name="Descriptor"):
         """
-        Parses a PDB file to extract average B-factor per residue, assuming residues are ordered numerically
-        from 1 upward (no chain info), and maps these values to proper residue IDs using the index-to-ID map.
+        Parses a PDB file to extract B-factor values for individual atoms (not residues),
+        mapping them to the corresponding residue and chain using the reference PDB order.
         Input:
             pdb_file [str]        - PDB file with descriptor values encoded in B-factor.
             descriptor_name [str] - Name for logging ("Fukui", "Fukushima", etc).
         Return:
-            [dict] residue_id → average B-factor value
+            [dict] residue_atom_id → B-factor value
+                e.g. "A:42LYS:CA" → 0.054
         """
-        residue_values = {}
-        current_residue_index = None
-        current_values = []
+        atom_values = {}
+        current_res_index = None
+        res_id = None
+
         with open(pdb_file, 'r') as f:
             for line in f:
-                if line.startswith("ATOM"):
-                    try:
-                        res_index = int(line[22:26].strip())
-                        bfactor = float(line[60:66].strip())
-                    except ValueError:
-                        continue
-                    # New residue encountered
-                    if current_residue_index != res_index:
-                        if current_residue_index is not None and current_values:
-                            residue_id = self.index_to_residue_id.get(current_residue_index)
-                            if residue_id:
-                                avg = sum(current_values) / len(current_values)
-                                residue_values[residue_id] = avg
-                        current_residue_index = res_index
-                        current_values = [bfactor]
-                    else:
-                        current_values.append(bfactor)
-            # Final residue
-            if current_residue_index is not None and current_values:
-                residue_id = self.index_to_residue_id.get(current_residue_index)
-                if residue_id:
-                    avg = sum(current_values) / len(current_values)
-                    residue_values[residue_id] = avg
-        self.verbose_handler.output(f"[INFO] Parsed {len(residue_values)} residue-level {descriptor_name} values from: {os.path.basename(pdb_file)}")
-        return residue_values
+                if not line.startswith("ATOM"):
+                    continue
+
+                try:
+                    res_index = int(line[22:26].strip())
+                    atom_name = line[12:16].strip()
+                    bfactor = float(line[60:66].strip())
+                except ValueError:
+                    continue
+
+                # Atualiza resíduo atual (a partir do PDB original)
+                if res_index != current_res_index:
+                    res_id = self.index_to_residue_id.get(res_index)
+                    current_res_index = res_index
+
+                if not res_id:
+                    continue
+
+                # Cria chave única: cadeia + resíduo + átomo
+                atom_key = f"{res_id}:{atom_name}"
+                atom_values[atom_key] = bfactor
+
+        self.verbose_handler.output(
+            f"[INFO] Parsed {len(atom_values)} atom-level {descriptor_name} values from: {os.path.basename(pdb_file)}"
+        )
+        return atom_values
+
 
     def get_residues_from_pdb(self, pdb_path):
         """
@@ -154,66 +158,74 @@ class CatalyticCav:
 
     def compute_average(self):
         """
-        Computes the average Fukushima and Fukui descriptor values for each predicted cavity,
-        normalized by the number of atoms rather than residues.
-        Each pocket file (residue*.pdb) is parsed to extract atoms and identify their corresponding
-        residues. Descriptor values are then accumulated and averaged across atoms that belong to
-        residues with known descriptors.
-        Input:
-            None
-        Return:
-            Tuple:
-                - results_fukushima         [dict]: Maps (method, pocket_file) to average Fukushima value per atom.
-                - results_fukui             [dict]: Maps (method, pocket_file) to average Fukui value per atom.
-                - results_fukushima_no_norm [dict]: (program, pocket_file) -> total (non-normalized) Fukushima sum.
-                - results_fukushima_sum_norm[dict]: (program, pocket_file) -> normalized Fukushima sum.
+        Computes the average Fukui and Fukushima descriptor values for each predicted cavity,
+        using per-atom values rather than per-residue averages.
+        Each cavity file (residue*.pdb) is parsed to extract atoms, whose chain, residue, and atom names
+        are used to look up the corresponding Fukui/Fukushima reactivity values.
         """
         cavity_programs = ['fpocket', 'ligsite', 'surfnet', 'pocketfinder']
         results_fukushima = {}
         results_fukui = {}
         results_fukushima_no_norm = {}
         results_fukushima_sum_norm = {}
+
         for program in cavity_programs:
             program_dir = os.path.join(self.cavities_path, program)
             if not os.path.exists(program_dir):
                 self.verbose_handler.output(f"[WARNING] Skipping missing cavity directory: {program_dir}")
                 continue
+
             for pocket_file in os.listdir(program_dir):
-                if pocket_file.startswith("residue") and pocket_file.endswith(".pdb"):
-                    pocket_path = os.path.join(program_dir, pocket_file)
-                    total_fukui = 0.0
-                    total_fukushima = 0.0
-                    atom_count = 0
-                    nonzero_atoms = 0
-                    with open(pocket_path, 'r') as pdb:
-                        for line in pdb:
-                            if line.startswith("ATOM"):
-                                chain_id = line[21].strip()
-                                res_seq = line[22:26].strip()
-                                res_name = line[17:20].strip()
-                                residue_id = f"{chain_id}:{res_seq}{res_name}"
-                                if residue_id in self.fukui_dict:
-                                    total_fukui += self.fukui_dict[residue_id]
-                                if residue_id in self.fukushima_dict:
-                                    val_fuku = self.fukushima_dict[residue_id]
-                                    total_fukushima += val_fuku
-                                    if val_fuku != 0.0:
-                                        nonzero_atoms += 1
-                                atom_count += 1
-                    avg_fukui = total_fukui / atom_count if atom_count else None
-                    avg_fukushima = total_fukushima / atom_count if atom_count else None
-                    fukushima_no_norm = total_fukushima
-                    fukushima_sum_norm = (total_fukushima / nonzero_atoms if nonzero_atoms > 0 else None)
-                    results_fukui[(program, pocket_file)] = avg_fukui
-                    results_fukushima[(program, pocket_file)] = avg_fukushima
-                    results_fukushima_no_norm[(program, pocket_file)] = fukushima_no_norm
-                    results_fukushima_sum_norm[(program, pocket_file)] = fukushima_sum_norm
-                    self.verbose_handler.output(
-                    f"[INFO] {program}/{pocket_file} → Atoms: {atom_count}, "
-                        f"Avg. Fukushima: {avg_fukushima}, Avg. Fukui: {avg_fukui}, "
-                        f"Fukushima_No_Norm: {fukushima_no_norm}, "
-                        f"Fukushima_Sum_Norm: {fukushima_sum_norm}"
-                    )
+                if not (pocket_file.startswith("residue") and pocket_file.endswith(".pdb")):
+                    continue
+
+                pocket_path = os.path.join(program_dir, pocket_file)
+                total_fukui = 0.0
+                total_fukushima = 0.0
+                atom_count = 0
+                active_atom_count = 0
+
+                with open(pocket_path, 'r') as pdb:
+                    for line in pdb:
+                        if not line.startswith("ATOM"):
+                            continue
+
+                        # Extrai informações do átomo da cavidade
+                        chain_id = line[21].strip()
+                        res_seq = line[22:26].strip()
+                        res_name = line[17:20].strip()
+                        atom_name = line[12:16].strip()
+                        atom_id = f"{chain_id}:{res_seq}{res_name}:{atom_name}"
+
+                        # Recupera valor Fukui
+                        if atom_id in self.fukui_dict:
+                            total_fukui += self.fukui_dict[atom_id]
+
+                        # Recupera valor Fukushima
+                        if atom_id in self.fukushima_dict:
+                            val_fuku = self.fukushima_dict[atom_id]
+                            total_fukushima += val_fuku
+                            if val_fuku != 0.0:
+                                active_atom_count += 1
+
+                        atom_count += 1
+
+                # Calcula médias e normalizações
+                avg_fukui = total_fukui / atom_count if atom_count > 0 else None
+                avg_fukushima = total_fukushima / atom_count if atom_count > 0 else None
+                fukushima_no_norm = total_fukushima
+                fukushima_sum_norm = total_fukushima / active_atom_count if active_atom_count > 0 else None
+
+                results_fukui[(program, pocket_file)] = avg_fukui
+                results_fukushima[(program, pocket_file)] = avg_fukushima
+                results_fukushima_no_norm[(program, pocket_file)] = fukushima_no_norm
+                results_fukushima_sum_norm[(program, pocket_file)] = fukushima_sum_norm
+
+                self.verbose_handler.output(
+                    f"[INFO] {program}/{pocket_file} → Atoms: {atom_count}, Active atoms: {active_atom_count}, "
+                    f"Avg_Fukushima={avg_fukushima}, Avg_Fukui={avg_fukui}, "
+                    f"Sum_Fukushima={fukushima_no_norm}, Norm_Fukushima={fukushima_sum_norm}"
+                )
 
         return results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm
 
