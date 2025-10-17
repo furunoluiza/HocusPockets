@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc
+from scipy.stats import gaussian_kde
 
 
 # ============================================================
@@ -109,7 +110,7 @@ def plotar_roc_drogavel_vs_nao(df, descriptor, label, pasta_saida):
 # GRÁFICO DE DENSIDADE
 # ============================================================
 def plotar_densidade(df, descriptor, label, pasta_saida, binario=False):
-    """Plota gráfico de densidade (sem preenchimento), com legenda e N."""
+    """Plota gráfico de densidade (sem extrapolação indevida), com legenda e N."""
     sub = df[["Categoria", descriptor]].dropna()
     if binario:
         sub = sub[sub["Categoria"].isin(["d", "n"])]
@@ -122,19 +123,31 @@ def plotar_densidade(df, descriptor, label, pasta_saida, binario=False):
     cores = {"d": "#4caf50", "b": "#ffa726", "n": "#ef5350"}
 
     plt.figure(figsize=(7, 5))
+    
     for cat, nome in categorias.items():
-        subset = sub[sub["Categoria"] == cat][descriptor]
-        if len(subset) == 0:
+        subset = sub[sub["Categoria"] == cat][descriptor].dropna()
+        if len(subset) <= 1:
             continue
-        sns.kdeplot(subset, color=cores[cat], lw=2, fill=False,
-                    label=f"{nome} (N={len(subset)})")
+
+        # Define os limites de forma robusta (sem extrapolar)
+        x_min, x_max = subset.min(), subset.max()
+        if x_min == x_max:
+            x_min -= 1e-6
+            x_max += 1e-6
+
+        kde = gaussian_kde(subset)
+        x_vals = np.linspace(x_min, x_max, 300)
+        densidade = kde(x_vals)
+        plt.plot(x_vals, densidade, color=cores[cat], lw=2,
+                 label=f"{nome} (N={len(subset)})")
+
     plt.xlabel(label)
     plt.ylabel("Densidade de probabilidade")
     titulo = f"Distribuição dos valores — {label}"
     if binario:
         titulo += "\n(Drogável vs Não Drogável)"
     plt.title(titulo)
-    plt.legend()
+    plt.legend(frameon=False)
     plt.tight_layout()
 
     suffix = "_binary" if binario else "_multiclasse"
@@ -142,7 +155,6 @@ def plotar_densidade(df, descriptor, label, pasta_saida, binario=False):
     plt.savefig(out_path, dpi=300)
     plt.close()
     print(f"[OK] Gráfico de densidade salvo: {out_path}")
-
 
 # ============================================================
 # MAIN
