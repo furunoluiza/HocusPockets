@@ -202,18 +202,24 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
     df = pd.read_csv(summary_csv)
     df["Grupo"] = df["IsReference"].map({True: "Positivo", False: "Negativo"})
 
-    for score_col, label_col in [("Fukui_Score", "Fukui médio"),
-                                 ("Fukushima_Score", "Fukushima médio"),
-                                 ("Fukushima_Sum", "Fukushima total (soma bruta)"),
-                                 ("Fukushima_Sum_Norm", "Fukushima normalizado (átomos ativos)"),
-                                 ("Score", "Descritores clássicos"),
-                                 ("Carbon_Freq", "Frequência de átomos de carbono"),
-                                 ("Volume", "Volume"), ("Radius", "Raio"), ("Surface", "Área de superfície"),
-                                 ("Diameter", "Diâmetro"), ("Smallest_Size", "Menor dimensão"),
-                                 ("Cylinder_Radius", "Raio do menor cilindro envolvente"),
-                                 ("Hydrophobicity_Score", "Hidrofobicidade média"),
-                                 ("Aromatic_Freq", "Frequência de resíduos aromáticos"),
-                                 ("Otyr_Freq", "Frequência de resíduos de tirosina")]:
+    for score_col, label_col in [
+        ("Fukui_Score", "Fukui médio (a.u.)"),                         # adimensional
+        ("Fukushima_Score", "Fukushima médio (a.u.)"),                 # adimensional
+        ("Fukushima_Sum", "Fukushima total (a.u.)"),                   # adimensional
+        ("Fukushima_Sum_Norm", "Fukushima normalizado (a.u.)"),        # adimensional
+        ("Score", "Pontuação clássica (a.u.)"),                        # adimensional
+        ("Carbon_Freq", "Frequência de átomos de carbono (%)"),        # porcentagem
+        ("Volume", "Volume (Å³)"),                                     # angstrom cúbico
+        ("Radius", "Raio (Å)"),                                        # angstrom
+        ("Surface", "Área de superfície (Å²)"),                        # angstrom quadrado
+        ("Diameter", "Diâmetro (Å)"),                                  # angstrom
+        ("Smallest_Size", "Menor dimensão (Å)"),                       # angstrom
+        ("Cylinder_Radius", "Menor raio do cilindro envolvente (Å)"),  # angstrom
+        ("Hydrophobicity_Score", "Hidrofobicidade média (a.u.)"),      # adimensional (escala arbitrária)
+        ("Aromatic_Freq", "Frequência de resíduos aromáticos (%)"),     # porcentagem
+        ("Otyr_Freq", "Frequência de resíduos de tirosina (%)")         # porcentagem
+    ]:
+
         if score_col not in df.columns:
             continue
 
@@ -235,7 +241,7 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
 
         # KDE
         plt.figure(figsize=(8,6))
-        for grupo, cor in [("Positivo", "green"), ("Negativo", "red")]:
+        for grupo, cor in [("CCE", "green"), ("CNCE", "red")]:
             subset = df.loc[df["Grupo"] == grupo, score_col].dropna()
             if len(subset) > 1:
                 kde = gaussian_kde(subset)
@@ -244,7 +250,7 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
                          label=f"{grupo} (n={len(subset)})")
         plt.xlabel(label_col)
         plt.ylabel("Densidade estimada")
-        plt.title(f"Densidade - {label_col}")
+        plt.title(label_col)
         plt.legend()
         plt.savefig(os.path.join(output_dir, f"density_{score_col}.png"))
         plt.close()
@@ -256,14 +262,12 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
         roc_auc = auc(fpr, tpr)
 
         plt.figure(figsize=(6,6))
-        plt.plot(fpr, tpr, color="navy", lw=2, label=f"AUC = {roc_auc:.2f}")
-        plt.text(0.98, 0.95, f"Total n={total_n}", transform=plt.gca().transAxes,
-                 ha="right", va="bottom", fontsize=9, color="gray")
+        plt.plot(fpr, tpr, color="navy", lw=2)
         plt.plot([0, 1], [0, 1], color="gray", linestyle="--")
         plt.xlabel("Falsos Positivos")
         plt.ylabel("Verdadeiros Positivos")
-        plt.title(f"Curva ROC - {label_col}")
-        plt.legend(loc="lower right")
+        plt.title(label_col)
+        plt.legend([f"AUC = {roc_auc:.2f}  |  N = {total_n}"], loc="lower right", frameon=False)
         plt.savefig(os.path.join(output_dir, f"roc_{score_col}.png"))
         plt.close()
 
@@ -290,11 +294,11 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
     )
 
     methods = [
-        ("Score", "Média dos descritores geométricos e físico-químicos", "classico_cumulativo_bar.png"),
+        ("Score", "Pontuação clássica (a.u.)", "classico_cumulativo_bar.png"),
         ("Fukui_Score", "Fukui médio",  "fukui_cumulativo_bar.png"),
         ("Fukushima_Score", "Fukushima médio", "fukushima_cumulativo_bar.png"),
-        ("Fukushima_Sum", "Fukushima total (soma bruta)", "fukushima_sum_cumulativo_bar.png"),
-        ("Fukushima_Sum_Norm", "Fukushima normalizado (átomos ativos)", "fukushima_sum_norm_cumulativo_bar.png")
+        ("Fukushima_Sum", "Fukushima total (a.u.)", "fukushima_sum_cumulativo_bar.png"),
+        ("Fukushima_Sum_Norm", "Fukushima normalizado (a.u.)", "fukushima_sum_norm_cumulativo_bar.png")
     ]
 
     for score_col, label, outname in methods:
@@ -350,8 +354,8 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
         width = 0.25             # barras mais "delicadas"
 
         plt.figure(figsize=(8, 6))
-        bars1 = plt.bar(x - width/2, hits_list,   width, label="Correto", color="#4caf50")
-        bars2 = plt.bar(x + width/2, misses_list, width, label="Errado",  color="#ef5350")
+        bars1 = plt.bar(x - width/2, hits_list,   width, label="CCE", color="#4caf50")
+        bars2 = plt.bar(x + width/2, misses_list, width, label="CNCE",  color="#ef5350")
 
         # Rótulos de % acima das barras
         for bars in (bars1, bars2):
@@ -363,10 +367,10 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
                     ha="center", va="bottom", fontsize=9
                 )
 
-        plt.xticks(x, [f"Top{k}" for k in ks])
-        plt.ylabel("Porcentagem de proteínas (%)")
+        plt.xticks(x, [f"Top {k}" for k in ks])
+        plt.ylabel("Proteínas (%)")
         plt.ylim(0, 105)
-        plt.title(f"{label} (acerto cumulativo Top1–Top3)")
+        plt.title(label)
         plt.legend(loc="upper left")
 
         # N total discreto (mesmo lugar do gráfico anterior)
