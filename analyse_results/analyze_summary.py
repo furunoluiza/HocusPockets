@@ -245,13 +245,15 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
             subset = df.loc[df["Grupo"] == grupo, score_col].dropna()
             if len(subset) > 1:
                 kde = gaussian_kde(subset)
-                x_vals = np.linspace(subset.min(), subset.max(), 200)
-                plt.plot(x_vals, kde(x_vals), color=cor, lw=2,
-                         label=f"{grupo} (n={len(subset)})")
+                x_vals = np.linspace(subset.min(), subset.max(), 300)
+                densidade = kde(x_vals)
+                plt.plot(x_vals, densidade, color=cor, lw=2,
+                         label=f"{grupo} (N = {len(subset)})")
         plt.xlabel(label_col)
-        plt.ylabel("Densidade estimada")
+        plt.ylabel("Densidade de probabilidade")
         plt.title(label_col)
-        plt.legend()
+        plt.legend(frameon=False)
+        plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"density_{score_col}.png"))
         plt.close()
 
