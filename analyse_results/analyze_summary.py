@@ -200,62 +200,92 @@ def plot_violin_descriptors(summary_csv, output_dir="output_resultados_violino")
 def plot_distributions_and_roc(summary_csv, output_dir="output_resultados"):
     os.makedirs(output_dir, exist_ok=True)
     df = pd.read_csv(summary_csv)
+
+    # Define grupos de referência (CCE vs CNCE)
     df["Grupo"] = df["IsReference"].map({True: "Positivo", False: "Negativo"})
 
-    for score_col, label_col in [
-        ("Fukui_Score", "Fukui médio (a.u.)"),                         # adimensional
-        ("Fukushima_Score", "Fukushima médio (a.u.)"),                 # adimensional
-        ("Fukushima_Sum", "Fukushima total (a.u.)"),                   # adimensional
-        ("Fukushima_Sum_Norm", "Fukushima normalizado (a.u.)"),        # adimensional
-        ("Score", "Pontuação clássica (a.u.)"),                        # adimensional
-        ("Carbon_Freq", "Frequência de átomos de carbono (%)"),        # porcentagem
-        ("Volume", "Volume (Å³)"),                                     # angstrom cúbico
-        ("Radius", "Raio (Å)"),                                        # angstrom
-        ("Surface", "Área de superfície (Å²)"),                        # angstrom quadrado
-        ("Diameter", "Diâmetro (Å)"),                                  # angstrom
-        ("Smallest_Size", "Menor dimensão (Å)"),                       # angstrom
-        ("Cylinder_Radius", "Menor raio do cilindro envolvente (Å)"),  # angstrom
-        ("Hydrophobicity_Score", "Hidrofobicidade média (a.u.)"),      # adimensional (escala arbitrária)
-        ("Aromatic_Freq", "Frequência de resíduos aromáticos (%)"),     # porcentagem
-        ("Otyr_Freq", "Frequência de resíduos de tirosina (%)")         # porcentagem
-    ]:
+    # Lista de descritores e seus rótulos (com unidades)
+    descritores = [
+        ("Fukui_Score", "Fukui médio (a.u.)"),
+        ("Fukushima_Score", "Fukushima médio (a.u.)"),
+        ("Fukushima_Sum", "Fukushima total (a.u.)"),
+        ("Fukushima_Sum_Norm", "Fukushima normalizado (a.u.)"),
+        ("Score", "Pontuação clássica (a.u.)"),
+        ("Carbon_Freq", "Frequência de átomos de carbono (%)"),
+        ("Volume", "Volume (Å³)"),
+        ("Radius", "Raio (Å)"),
+        ("Surface", "Área de superfície (Å²)"),
+        ("Diameter", "Diâmetro (Å)"),
+        ("Smallest_Size", "Menor dimensão (Å)"),
+        ("Cylinder_Radius", "Menor raio do cilindro envolvente (Å)"),
+        ("Hydrophobicity_Score", "Hidrofobicidade média (a.u.)"),
+        ("Aromatic_Freq", "Frequência de resíduos aromáticos (%)"),
+        ("Otyr_Freq", "Frequência de resíduos de tirosina (%)")
+    ]
 
+    # Mapeamento visual e de legenda
+    grupos = [
+        ("Positivo", "CCE", "#4caf50"),  # verde = cavidade experimental
+        ("Negativo", "CNCE", "#ef5350")  # vermelho = cavidade não experimental
+    ]
+
+    for score_col, label_col in descritores:
         if score_col not in df.columns:
+            print(f"[AVISO] Coluna '{score_col}' não encontrada. Pulando.")
             continue
 
-        # Histograma
-        plt.figure(figsize=(8,6))
+        # ----------------------------------------------------------------------
+        # HISTOGRAMA
+        # ----------------------------------------------------------------------
+        plt.figure(figsize=(8, 6))
         total_n = 0
-        for grupo, cor in [("Positivo", "green"), ("Negativo", "red")]:
-            subset = df.loc[df["Grupo"] == grupo, score_col].dropna()
+
+        for grupo_real, nome_legenda, cor in grupos:
+            subset = df.loc[df["Grupo"] == grupo_real, score_col].dropna()
+            if len(subset) == 0:
+                continue
             total_n += len(subset)
-            plt.hist(subset, bins=30, alpha=0.6, label=f"{grupo} (n={len(subset)})", color=cor)
+            plt.hist(subset, bins=30, alpha=0.6, color=cor,
+                     label=f"{nome_legenda} (N = {len(subset)})")
+
         plt.xlabel(label_col)
         plt.ylabel("Número de cavidades")
-        plt.title(f"Histograma - {label_col}")
-        plt.legend()
-        plt.text(0.98, 0.95, f"Total n={total_n}", transform=plt.gca().transAxes,
-                 ha="right", va="top", fontsize=9, color="gray")
-        plt.savefig(os.path.join(output_dir, f"hist_{score_col}.png"))
+        plt.title(f"Histograma — {label_col}")
+        plt.legend(frameon=False)
+        plt.text(0.98, 0.95, f"Total N = {total_n}",
+                 transform=plt.gca().transAxes, ha="right", va="top",
+                 fontsize=9, color="gray")
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, f"hist_{score_col}.png"), dpi=300)
         plt.close()
+        print(f"[OK] Histograma salvo: {score_col}")
 
-        # KDE
-        plt.figure(figsize=(8,6))
-        for grupo, cor in [("CCE", "green"), ("CNCE", "red")]:
-            subset = df.loc[df["Grupo"] == grupo, score_col].dropna()
+        # ----------------------------------------------------------------------
+        # KDE (Curvas de densidade)
+        # ----------------------------------------------------------------------
+        plt.figure(figsize=(8, 6))
+
+        for grupo_real, nome_legenda, cor in grupos:
+            subset = df.loc[df["Grupo"] == grupo_real, score_col].dropna()
             if len(subset) > 1:
+                x_min, x_max = subset.min(), subset.max()
+                if x_min == x_max:
+                    x_min -= 1e-6
+                    x_max += 1e-6
                 kde = gaussian_kde(subset)
-                x_vals = np.linspace(subset.min(), subset.max(), 300)
+                x_vals = np.linspace(x_min, x_max, 300)
                 densidade = kde(x_vals)
                 plt.plot(x_vals, densidade, color=cor, lw=2,
-                         label=f"{grupo} (N = {len(subset)})")
+                         label=f"{nome_legenda} (N = {len(subset)})")
+
         plt.xlabel(label_col)
         plt.ylabel("Densidade de probabilidade")
-        plt.title(label_col)
+        plt.title(f"Distribuição — {label_col}")
         plt.legend(frameon=False)
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f"density_{score_col}.png"))
+        plt.savefig(os.path.join(output_dir, f"density_{score_col}.png"), dpi=300)
         plt.close()
+        print(f"[OK] Curva KDE salva: {score_col}")
 
         # ROC
         y_true = df["IsReference"].astype(int).values
