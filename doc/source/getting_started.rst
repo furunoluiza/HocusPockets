@@ -40,3 +40,8 @@ Display usage options:
 
     HocusPockets --help
 
+You can use HocusPockets with either a .pdb or .cif file format:
+.. code-block:: bash
+
+    HocusPockets -i file.pdb -o output_path
+
