@@ -44,14 +44,38 @@ from Initialize import *
 class CatalyticCav:
     def __init__(self, cavities_path, pdb_path, fukui_file, fukushima_file, verbose_handler):
         """
-        Initializes the CatalyticCav object using original PDB residue order to match Fukui and Fukushima
-        values (stored in the B-factor field) from corresponding PDBs that lack chain information.
-        Input:
-            cavities_path    [str] - Path to the directory containing cavity output files.
-            pdb_path         [str] - Path to the original input PDB with full residue and chain info.
-            fukui_file       [str] - PDB file where Fukui values are encoded in the B-factor field.
-            fukushima_file   [str] - PDB file where Fukushima values are encoded in the B-factor field.
-            verbose_handler  [VerboseHandler] - Logger for informative output.
+        Initialize a CatalyticCav object.
+
+        The original PDB residue ordering is preserved to ensure
+        correct mapping of Fukui and Fukushima values stored in
+        the B-factor field of external PDB files that do not
+        contain chain information.
+
+        Parameters
+        ----------
+        cavities_path : str
+            Path to the directory containing cavity output files.
+
+        pdb_path : str
+            Path to the original input PDB structure containing
+            complete residue and chain information.
+
+        fukui_file : str
+            PDB file containing Fukui values encoded in the
+            B-factor column.
+
+        fukushima_file : str
+            PDB file containing Fukushima values encoded in the
+            B-factor column.
+
+        verbose_handler : VerboseHandler
+            Logger used to report execution information and warnings.
+
+        Notes
+        -----
+        The residue order from the original structure is used as the
+        reference for matching atoms and residues between the input
+        PDB and the Fukui/Fukushima descriptor files.
         """
         self.cavities_path = cavities_path
         self.pdb_path = pdb_path
@@ -68,10 +92,22 @@ class CatalyticCav:
             """
             Extracts the list of residues from the original PDB, ordered by first appearance,
             and maps sequential index (starting at 1) → 'chain:resSeqresName'.
-            Input:
-                Nothing.
-            Return:
-                [dict]: Maps index (1-based) → 'chain:resSeqresName'
+            Parameters
+            ----------
+                None
+            Return
+            ------
+                residue_map : dict
+                    Maps index (1-based) → 'chain:resSeqresName'
+            Notes
+            -----
+                This mapping is used to relate the sequential order of atoms in the Fukui/Fukushima
+                PDB files (which lack chain information) back to the original residues with chain IDs.
+            
+            Example
+            --------
+                residue_map = self.extract_residue_index_mapping()
+                # residue_map[1] might be 'A:42LYS', residue_map[2] might be 'A:43GLU', etc.
             """
             residue_map = {} # Final mapping from sequential index to full residue ID
             seen = set() # To track residues already encountered (avoid duplicates)
@@ -95,12 +131,26 @@ class CatalyticCav:
         """
         Parses a PDB file to extract B-factor values for individual atoms (not residues),
         mapping them to the corresponding residue and chain using the reference PDB order.
-        Input:
-            pdb_file [str]        - PDB file with descriptor values encoded in B-factor.
-            descriptor_name [str] - Name for logging ("Fukui", "Fukushima", etc).
-        Return:
-            [dict] residue_atom_id → B-factor value
-                e.g. "A:42LYS:CA" → 0.054
+        Parameters
+        ----------
+            pdb_file : str
+                - PDB file with descriptor values encoded in B-factor.
+            descriptor_name : str
+                - Name for logging ("Fukui", "Fukushima", etc).
+        Return
+        ------
+            atom_values : dict
+                - Maps 'chain:resSeqresName:atomName' → B-factor value
+                e.g. "A:42LYS:CA" → 0.054   
+        Notes
+        -----
+            The method assumes that the order of atoms in the input PDB file matches
+            the order of residues in the original PDB, allowing for correct mapping
+            of B-factor values to residues with chain information.
+
+        Example
+        -------
+            atom_values = self.load_bfactor_values("fukui.pdb", descriptor_name="Fukui")
         """
         atom_values = {}
         current_res_index = None
@@ -140,10 +190,19 @@ class CatalyticCav:
         """
         Extracts a set of unique residues from a PDB file, using a composite ID that includes:
         chain ID, residue sequence number, and residue name.
-        Input:
-            pdb_path [str]: Path to the input PDB file.
-        Return:
-            residues[set]: A set of residue IDs in the format 'chain:resSeqresName' (e.g., 'A:42LYS').
+        Parameters
+        ----------
+            pdb_path : str
+                Path to the input PDB file.
+        Return
+        ------
+            residues : str
+                A set of residue IDs in the format 'chain:resSeqresName' (e.g., 'A:42LYS').
+        Notes
+        -----
+            This method is useful for quickly identifying all residues present in a PDB file,
+            regardless of atom-level details. It ignores duplicate residues and only considers
+            lines starting with "ATOM".
         """
         residues = set()
         with open(pdb_path, 'r') as file:
@@ -160,8 +219,26 @@ class CatalyticCav:
         """
         Computes the average Fukui and Fukushima descriptor values for each predicted cavity,
         using per-atom values rather than per-residue averages.
+        Parameters
+        ----------
+            None
+        Return
+        ------
+            results_fukushima : dict
+                Maps (program, pocket_file) → average Fukushima value
+            results_fukui : dict
+                Maps (program, pocket_file) → average Fukui value
+            results_fukushima_no_norm : dict
+                Maps (program, pocket_file) → sum of Fukushima values (no normalization)
+            results_fukushima_sum_norm : dict
+                Maps (program, pocket_file) → sum of Fukushima values normalized by number of active atoms
+        Notes
+        -----
         Each cavity file (residue*.pdb) is parsed to extract atoms, whose chain, residue, and atom names
         are used to look up the corresponding Fukui/Fukushima reactivity values.
+        
+        Example:
+            results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm = self.compute_average()
         """
         cavity_programs = ['fpocket', 'ligsite', 'surfnet', 'pocketfinder']
         results_fukushima = {}
@@ -235,11 +312,23 @@ class CatalyticCav:
         Identifies catalytic residues based on the top 5% Fukui values (from B-factor column)
         in the Fukui PDB file (which lacks chain information), but maps back to residues with
         chain using the original input PDB.
-        The output is a new PDB file containing all atoms of the residues considered catalytic.
-        Input:
-            Nothing.
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            None
+
+        Return
+        ------
+            None
+
+        Notes
+        -----   
+        The method reads the Fukui PDB file, computes the cutoff for the top 5% of B-factor values,
+        and then extracts all atoms of residues that have at least one atom above this cutoff.
+        The resulting atoms are saved to a new PDB file in the 'fukui' subdirectory of the cavities path.
+        
+        Example
+        ------- 
+            self.process_fukui_cav()
         """
         if not os.path.exists(self.pdb_path):
             self.verbose_handler.output(f"[ERROR] Original PDB file not found: {self.pdb_path}")

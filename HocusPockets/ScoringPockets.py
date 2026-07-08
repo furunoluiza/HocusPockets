@@ -51,19 +51,24 @@ class ScoringPockets:
     def __init__(self, input_path, output_path, verbose_handler):
         """
         Initializes the CavityFinder object.
-        Parameters:
-            input_path      (str)  - Path to the input file or directory containing the protein structure.
-            output_path     (str)  - Path where the output will be saved.
-            verbose_handler (bool) - Object to handle verbose output.
-        Returns:
-            Nothing.
 
         Hydrophobicity values are defined based on:
-        WIMLEY, W. C.; WHITE, S. H. Experimentally determined hydrophobicity scale for 
+        WIMLEY, W. C.; WHITE, S. H. Experimentally determined hydrophobicity scale for
         proteins at membrane interfaces. Nature Structural Biology, 1996.
-        
-        * B (ASX) is assigned the same value as D (ASP).
-        * Z (GLX) is assigned the same value as E (GLU).
+
+        Parameters
+        ----------
+            input_path : str
+                Path to the input file or directory containing the protein structure.
+            output_path : str
+                Path where the output will be saved.
+            verbose_handler : object
+                Object to handle verbose output.
+
+        Notes
+        -----
+            B (ASX) is assigned the same value as D (ASP).
+            Z (GLX) is assigned the same value as E (GLU).
         """
         self.input_path = input_path
         self.output_path = output_path
@@ -77,9 +82,13 @@ class ScoringPockets:
     def plot_cavity(self, coordinates, pocket_file):
         """
         Plots a 3D representation of a cavity including its convex hull and atoms.
-        Input:
-            coordinates [list] - List of 3D coordinates representing cavity atoms.
-            pocket_file [str]  - Name of the pocket file for the plot title.
+
+        Parameters
+        ----------
+            coordinates : list
+                List of 3D coordinates representing cavity atoms.
+            pocket_file : str
+                Name of the pocket file for the plot title.
         """
         hull = ConvexHull(coordinates)
         fig = plt.figure()
@@ -104,11 +113,17 @@ class ScoringPockets:
         Calculates the volume, surface area, radius, diameter, smallest size,
         and minimal enclosing cylinder for a cavity defined by atomic coordinates.
 
-        Input:
-        lines [list] - A list of lines from a PDB file, where each line may represent atomic information.
+        Parameters
+        ----------
+            lines : list
+                A list of lines from a PDB file, where each line may represent atomic information.
+            grid_file_path : str
+                Path to the grid file for error reporting.
 
-        Return:
-        [tuple] (volume, surface, radius, diameter, smallest_size, cylinder_radius) - 
+        Return
+        ------
+            tuple
+                (volume, surface, radius, diameter, smallest_size, cylinder_radius)
                 Calculated geometric properties, or zeros if insufficient data is provided.
         """
         coordinates = []
@@ -170,13 +185,19 @@ class ScoringPockets:
 
     def calculate_residue_descriptors(self, residue_file):
         """
-        Calculates the average hydrophobicity of residues of the pocket, 
+        Calculates the average hydrophobicity of residues of the pocket,
         along with frequencies of aromatic residues and Tyr(OH) atoms.
-        Input:
-            residue_file [str] - Path to the residue file containing ATOM entries.
-        Return:
-            [tuple] A tuple with average hydrophobicity, aromatic residue frequency, 
-                    and Tyr(OH) atom frequency.
+
+        Parameters
+        ----------
+            residue_file : str
+                Path to the residue file containing ATOM entries.
+
+        Return
+        ------
+            tuple
+                A tuple with average hydrophobicity, aromatic residue frequency,
+                Tyr(OH) atom frequency, and carbon atom frequency.
         """
         total_hydro = 0.0
         residue_count = 0
@@ -216,18 +237,32 @@ class ScoringPockets:
                  hydrophobicity_score, aromatic_freq, otyr_freq, radius, cylinder_radius):
         """
         Calculates the cavity score as a simple mean of selected descriptors.
-        Descriptors included (based on observed contribution):
-        - Volume
-        - Surface
-        - Diameter
-        - Smallest size
-        - Hydrophobicity score
-        - Aromatic frequency
-        - Tyrosine frequency
-        - Radius
-        - Cylinder radius
-        Return:
-            [float] Average score of the selected descriptors.
+
+        Parameters
+        ----------
+            volume : float
+                Cavity volume.
+            surface : float
+                Cavity surface area.
+            diameter : float
+                Cavity diameter.
+            smallest_size : float
+                Smallest size of the cavity.
+            hydrophobicity_score : float
+                Average hydrophobicity score.
+            aromatic_freq : float
+                Aromatic residue frequency.
+            otyr_freq : float
+                Tyrosine OH frequency.
+            radius : float
+                Cavity radius.
+            cylinder_radius : float
+                Minimal enclosing cylinder radius.
+
+        Return
+        ------
+            float
+                Average score of the selected descriptors.
         """
         values = [
             volume,
@@ -247,11 +282,15 @@ class ScoringPockets:
         """
         Calculates the geometric center (centroid) of a cavity based on atomic coordinates.
 
-        Input:
-            pdb_lines [list] - Lines from a PDB file containing ATOM or HETATM entries.
+        Parameters
+        ----------
+            pdb_lines : list
+                Lines from a PDB file containing ATOM or HETATM entries.
 
-        Return:
-            [tuple] (x, y, z) - Geometric center coordinates in Ångströms.
+        Return
+        ------
+            tuple
+                (x, y, z) Geometric center coordinates in Angstroms.
         """
         coordinates = []
         for line in pdb_lines:
@@ -273,11 +312,13 @@ class ScoringPockets:
     def save_cavity_scores(self, cavity_path, scores):
         """
         Saves the calculated cavity scores for different programs into a CSV file.
-        Input:
-            cavity_path [str] - Path to the directory containing the cavity data.
-            scores      [list] - List of dictionaries with cavity data and computed descriptors.
-        Return:
-            Nothing.
+        
+        Parameters
+        ----------
+            cavity_path : str
+                Path to the directory containing the cavity data.
+            scores : list
+                List of dictionaries with cavity data and computed descriptors.
         """
         # Define output file path
         protein_code = os.path.basename(os.path.dirname(cavity_path))

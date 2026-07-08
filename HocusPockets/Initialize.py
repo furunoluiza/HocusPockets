@@ -72,10 +72,11 @@ epilogue = tw.dedent("""
 def args_parse():
     """
     Parses command-line arguments provided by the user.
-    Input:
-        Nothing.
-    Returns:
-        args [Namespace] - A namespace containing parsed argument values.
+    
+    Return
+    ------
+        argparse.Namespace
+            A namespace containing parsed argument values.
     """
     parser = argparse.ArgumentParser(prog='HocusPockets',
                                     formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -142,10 +143,12 @@ def args_parse():
 def check_fpocket_installed(verbose_handler):
     """
     Checks whether 'fpocket' is installed and accessible from the command line.
-    Input:
-        verbose_handler - Object responsible for displaying log messages.
-    Exit:
-        Terminates the script if 'fpocket' is not found or fails to execute.
+
+    Parameters
+    ----------
+        verbose_handler : object
+            Object responsible for displaying log messages.
+
     """
     try:
         subprocess.run(['fpocket', '--help'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -160,10 +163,11 @@ def check_fpocket_installed(verbose_handler):
 def check_concavity_installed(verbose_handler):
     """
     Checks whether 'ConCavity' is installed and accessible from the command line.
-    Input:
-        verbose_handler - Object responsible for displaying log messages.
-    Exit:
-        Terminates the script if 'ConCavity' is not found or fails to execute.
+
+    Parameters
+    ----------
+        verbose_handler : object
+            Object responsible for displaying log messages.
     """
     try:
         subprocess.run(['concavity'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -178,11 +182,11 @@ def check_concavity_installed(verbose_handler):
 def check_primordia_installed(verbose_handler):
     """
     Checks whether 'PRIMoRDIA' is installed and accessible from the command line.
-    Input:
-        verbose_handler - Object responsible for displaying log messages.
-    Exit:
-        Terminates the script if 'PRIMoRDIA' is not found.
-        Logs a warning if it returns a non-zero exit code.
+
+    Parameters
+    ----------
+        verbose_handler : object
+            Object responsible for displaying log messages.
     """
     try:
         result = subprocess.run(
@@ -202,10 +206,11 @@ def check_primordia_installed(verbose_handler):
 def check_mopac_installed(verbose_handler):
     """
     Checks whether 'MOPAC' is installed and accessible from the expected path.
-    Input:
-        verbose_handler - Object responsible for displaying log messages.
-    Exit:
-        Terminates the script if 'MOPAC' is not found or fails to run.
+
+    Parameters
+    ----------
+        verbose_handler : object
+            Object responsible for displaying log messages.
     """
     try:
         subprocess.run(
@@ -223,14 +228,13 @@ def check_mopac_installed(verbose_handler):
 def verify_input(args, verbose_handler):
     """
     Verifies that input and output paths are valid and that required tools are installed.
-    Input:
-        args [Namespace] - Parsed command-line arguments containing input/output paths and options.
-        verbose_handler - Object responsible for displaying log messages.
-    Exit:
-        Terminates the script if:
-            - Any required tool is missing.
-            - Input path is invalid or lacks .pdb files.
-            - Output path is not a directory.
+    
+    Parameters
+    ----------
+        args : argparse.Namespace
+            Parsed command-line arguments containing input/output paths and options.
+        verbose_handler : object
+            Object responsible for displaying log messages.
     """
     check_fpocket_installed(verbose_handler)
     check_concavity_installed(verbose_handler)

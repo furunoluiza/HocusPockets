@@ -48,13 +48,16 @@ class Reactivity:
         Initializes the Reactivity object for computing reactivity descriptors using
         MOPAC and PRIMoRDiA.
 
-        Input:
-            input_path      [str]  - Path to a single .pdb file or directory containing multiple .pdb files.
-            output_path     [str]  - Directory where output files will be saved.
-            verbose_handler [obj]  - Instance of VerboseHandler for logging output messages.
-
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            input_path : str
+                Path to a single .pdb file or directory containing multiple .pdb files.
+            output_path : str
+                Directory where output files will be saved.
+            verbose_handler : object
+                Instance of VerboseHandler for logging output messages.
+            eband_limit : int, optional
+                Energy range limit (in eV) for orbital selection. Default is 3.
         """
         self.input_path = input_path
         self.output_path = output_path
@@ -65,12 +68,12 @@ class Reactivity:
         """
         Runs PRIMoRDiA on the given input file.
 
-        Input:
-            primordia_file [str] - Path to the PRIMoRDiA input file.
-            primordia_dir [str]  - Directory where PRIMoRDiA outputs will be saved.
-
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            primordia_file : str
+                Path to the PRIMoRDiA input file.
+            primordia_dir : str
+                Directory where PRIMoRDiA outputs will be saved.
         """
         os.makedirs(primordia_dir, exist_ok=True)
         command = ["PRIMoRDiA_1.25v_LINUX64", "-f", primordia_file]
@@ -87,13 +90,22 @@ class Reactivity:
         """
         Creates a PRIMoRDiA input file using the .aux output from MOPAC
         and the original .pdb structure.
-        Input:
-            input_path     [str]   - Path to the input PDB file.
-            output_aux     [str]   - Path to the MOPAC .aux output file.
-            primordia_dir  [str]   - Directory where the input file will be saved.
-            eband_limit    [int] - Energy range limit (in eV) for orbital selection. Default is 3.
-        Return:
-            [str] Path to the generated PRIMoRDiA input file.
+
+        Parameters
+        ----------
+            input_path : str
+                Path to the input PDB file.
+            output_aux : str
+                Path to the MOPAC .aux output file.
+            primordia_dir : str
+                Directory where the input file will be saved.
+            eband_limit : int, optional
+                Energy range limit (in eV) for orbital selection. Default is 3.
+
+        Return
+        ------
+            str
+                Path to the generated PRIMoRDiA input file.
         """
         protein_name = os.path.splitext(os.path.basename(input_path))[0]
         abs_input_path = os.path.abspath(input_path)
@@ -108,11 +120,18 @@ class Reactivity:
     def run_mopac(self, mopac_file, reactivity_dir):
         """
         Runs MOPAC on the given .mop file and saves the output in the reactivity directory.
-        Input:
-            mopac_file [str]        Path to the .mop input file.
-            reactivity_dir [str]    Directory where MOPAC outputs will be saved.
-        Return:
-            [str] Path to the generated .aux output file.
+
+        Parameters
+        ----------
+            mopac_file : str
+                Path to the .mop input file.
+            reactivity_dir : str
+                Directory where MOPAC outputs will be saved.
+
+        Return
+        ------
+            str
+                Path to the generated .aux output file.
         """
         base_name = os.path.splitext(os.path.basename(mopac_file))[0]
         # Define output file paths
@@ -130,12 +149,17 @@ class Reactivity:
         """
         Converts a PDB file into a MOPAC-compatible .mop file, including a predefined header.
 
-        Input:
-            input_file [str]            - Path to the input PDB file.
-            protein_output_dir [str]    - Directory where the resulting .mop file will be saved.
+        Parameters
+        ----------
+            input_file : str
+                Path to the input PDB file.
+            protein_output_dir : str
+                Directory where the resulting .mop file will be saved.
 
-        Return:
-            [str] Path to the generated .mop file.
+        Return
+        ------
+            str
+                Path to the generated .mop file.
         """
         # Define the name of the output .mop file
         mopac_file = os.path.join(protein_output_dir, os.path.basename(input_file).replace(".pdb", ".mop"))
@@ -171,11 +195,13 @@ class Reactivity:
         """
         Processes all .pdb protein files in the input directory and applies
         MOPAC and PRIMoRDIA calculations on each.
-        Input:
-            n_jobs   [int]   Number of parallel threads to use (default = number of CPU cores).
-            parallel [bool]  Whether to run tasks in parallel using threading.
-        Retun:
-            Nothing.
+
+        Parameters
+        ----------
+            n_jobs : int, optional
+                Number of parallel threads to use (default = number of CPU cores).
+            parallel : bool, optional
+                Whether to run tasks in parallel using threading.
         """
         # Collect all PDB files first
         pdb_files = []
@@ -230,10 +256,19 @@ class Reactivity:
     def process_file(self, protein_output_dir):
         """
         Processes a single .pdb file provided as input and runs MOPAC and PRIMoRDIA calculations.
-        Input:
-            protein_output_dir [str]    Path where output directories will be created.
-        Output:
-            Nothing.
+
+        Parameters
+        ----------
+            protein_output_dir : str
+                Path where output directories will be created.
+        
+        Return
+        ------
+            None
+
+        Notes
+        -----
+            This method is used when the input is a single PDB file rather than a directory.
         """
         reactivity_dir = os.path.join(protein_output_dir, "reactivity")
         mopac_dir = os.path.join(reactivity_dir, "mopac")
@@ -253,10 +288,28 @@ class Reactivity:
     def find_reactivity(self, parallel=False, n_jobs=None):
         """
         Main method to find cavities in a file or a directory.
-        Input:
-            Nothing.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            parallel : bool, optional
+                Whether to run tasks in parallel using threading.
+            n_jobs : int, optional
+                Number of parallel threads to use.
+        
+        Return
+        ------
+            None
+        
+        Notes
+        -----
+            This method orchestrates the entire reactivity calculation workflow, handling both
+            single file and directory inputs. It creates necessary output directories and
+            invokes the appropriate processing methods.
+
+        Notes
+        -----
+            If the input path is a directory, it will process all .pdb files within that directory.
+            If the input path is a single .pdb file, it will process that file directly.
         """
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
         protein_output_dir = os.path.join(self.output_path, base_name)
