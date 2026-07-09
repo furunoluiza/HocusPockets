@@ -23,7 +23,7 @@
 import gzip
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from Initialize import *
+from hocuspockets.initialize import *
 
 # License
 ###############################################################################

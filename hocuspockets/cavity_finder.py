@@ -24,9 +24,9 @@ import pandas as pd
 import numpy as np
 from scipy.spatial import ConvexHull #volume
 import matplotlib.pyplot as plt
-from Initialize import *
-from ScoringPockets import *
-from CatalyticCav import *
+from hocuspockets.initialize import *
+from hocuspockets.scoring_pockets import *
+from hocuspockets.catalytic_cav import *
 
 # License
 ###############################################################################
