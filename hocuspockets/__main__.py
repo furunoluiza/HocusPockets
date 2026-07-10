@@ -21,9 +21,9 @@
 # Imports
 ###############################################################################
 import os
-from Initialize import *
-from CavityFinder import *
-from Reactivity import *
+from hocuspockets.initialize import *
+from hocuspockets.cavity_finder import *
+from hocuspockets.reactivity import *
 
 # License
 ###############################################################################
