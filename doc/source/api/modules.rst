@@ -1,7 +1,7 @@
-HocusPockets
+hocuspockets
 ============
 
 .. toctree::
    :maxdepth: 4
 
-   HocusPockets
+   hocuspockets
