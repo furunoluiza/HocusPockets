@@ -140,7 +140,7 @@ class Reactivity:
         self.verbose_handler.output(f"[INFO] Running MOPAC for: {mopac_file}")
         # Run MOPAC and capture errors in a dedicated error file
         with open(output_err, 'w') as f:
-            process = subprocess.run(['/opt/mopac/MOPAC2016.exe', mopac_file], cwd=reactivity_dir, 
+            process = subprocess.run(['mopac', mopac_file], cwd=reactivity_dir, 
                                      stdout=subprocess.DEVNULL, stderr=f, check=True)
         return output_aux
         
