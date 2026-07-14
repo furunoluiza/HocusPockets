@@ -214,7 +214,7 @@ def check_mopac_installed(verbose_handler):
     """
     try:
         subprocess.run(
-            ['/opt/mopac/MOPAC2016.exe'],
+            ['mopac'],
             input=b'\n',
             check=True,
             stdout=subprocess.PIPE,
