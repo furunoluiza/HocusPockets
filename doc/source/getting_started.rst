@@ -29,6 +29,12 @@ Install the package:
 
     pip install .
 
+if you want to install external software automatically, you can use the following command:
+
+.. code-block:: bash
+
+    hocuspockets-install
+
 ----
 
 Quickstart
