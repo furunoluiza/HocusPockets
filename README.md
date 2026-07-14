@@ -30,3 +30,5 @@ For a full list of options, run:
 ```bash
 hocuspockets -h
 ```
+
+For more information, please refer to the [documentation](https://furunoluiza.github.io/HocusPockets/).
