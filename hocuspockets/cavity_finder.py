@@ -24,9 +24,9 @@ import pandas as pd
 import numpy as np
 from scipy.spatial import ConvexHull #volume
 import matplotlib.pyplot as plt
-from Initialize import *
-from ScoringPockets import *
-from CatalyticCav import *
+from hocuspockets.initialize import *
+from hocuspockets.scoring_pockets import *
+from hocuspockets.catalytic_cav import *
 
 # License
 ###############################################################################
@@ -49,15 +49,27 @@ class CavityFinder:
     def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
         """
         Initializes the CavityFinder object.
-        Input:
-        input_path      [str]                - Path to the input file or directory containing the protein structure.
-        output_path     [str]                - Path where the output will be saved.
-        verbose_handler [bool]               - Object to handle verbose output.
-        fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
-        distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
-        similarity      [float] DEFAULT: 0.5 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            input_path : str
+                Path to the input file or directory containing the protein structure.
+            output_path : str
+                Path where the output will be saved.
+            verbose_handler : object
+                Object to handle verbose output.
+            distance : float, optional
+                Maximum allowed distance between grid points and residues when analyzing cavity proximity. Default is 6.0.
+            similarity : float, optional
+                Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar. Default is 0.5.
+            fpocket_score : float, optional
+                Threshold score for selecting cavities on fpocket. Default is 0.5.
+
+        Notes
+        -----
+            This class serves as a base for cavity detection and comparison across different methods.
+            It provides methods to extract residues from PDB files, compare cavities based on residue similarity,
+            and generate reports on cavity overlap and scoring.
         """
         self.input_path = input_path
         self.output_path = output_path
@@ -70,10 +82,26 @@ class CavityFinder:
     def extract_residues_from_pdb(cavity_file):
         """
         Extracts unique residues from a PDB file representing a cavity.
-        Input:
-            cavity_file [str] - Path to the PDB file from which residues are to be extracted.
-        Return:
-            [set] A set of unique residue identifiers, formatted as "chain:resSeqresName".
+        Parameters
+        ----------
+            cavity_file : str
+                Path to the PDB file from which residues are to be extracted.
+        
+        Returns
+        -------
+            residues : set
+                A set of unique residue identifiers, formatted as "chain:resSeqresName".
+        Notes
+        -----
+            The method reads the PDB file line by line, identifying lines that start with "ATOM".
+            For each ATOM line, it extracts the chain ID, residue sequence number, and residue name,
+            and constructs a unique identifier for the residue. These identifiers are collected into a set
+            to ensure uniqueness.
+        
+        Example
+        -------
+            residues = CavityFinder.extract_residues_from_pdb("cavity_1.pdb")
+            print(residues)  # Output might be: {'A:42LYS', 'A:43GLU', 'B:10ALA'}
         """
         residues = set()
         with open(cavity_file, 'r') as f:
@@ -89,12 +117,21 @@ class CavityFinder:
     def compare_residues(self, residues_a, residues_b):
         """
         Compares two sets of residues to determine their similarity.
-        Input:
-        residues_a [set] - A set of residue identifiers from the first cavity.
-        residues_b [set] - A set of residue identifiers from the second cavity.
-        Return:
-            [bool] True if the similarity between the two sets of residues 
-                is greater than or equal to 0.5, otherwise False.
+        Parameters
+        ----------
+            residues_a : set
+                A set of residue identifiers from the first cavity.
+            residues_b : set
+                A set of residue identifiers from the second cavity.
+        Return
+        ------
+            bool
+                True if the similarity between the two sets of residues
+                is greater than or equal to the similarity threshold, otherwise False.
+        Notes
+        -----   
+            The similarity is calculated as the size of the intersection of the two sets
+            divided by the size of the larger set. If either set is empty, the method returns False.
         """
         if not residues_a or not residues_b:
             return False
@@ -105,11 +142,23 @@ class CavityFinder:
     def plot_hull_and_residues(self, hull_points, residue_points, cavity_index, method):
         """
         Plots the convex hull points of a cavity and the residues within a 1Å distance.
-        Inputs:
-            hull_points [list or np.ndarray]    - Array of 3D coordinates forming the convex hull of the cavity (Nx3).
-            residue_points [list or np.ndarray] - Array of 3D coordinates of residues near the cavity surface (within 1Å).
-            cavity_index [str]                  - Identifier for the cavity (e.g., index number).
-            method [str]                        - Name of the method that generated the cavity (e.g., 'fpocket').
+
+        Parameters
+        ----------
+            hull_points : list or np.ndarray
+                Array of 3D coordinates forming the convex hull of the cavity (Nx3).
+            residue_points : list or np.ndarray
+                Array of 3D coordinates of residues near the cavity surface (within 1Å).
+            cavity_index : str
+                Identifier for the cavity (e.g., index number).
+            method : str
+                Name of the method that generated the cavity (e.g., 'fpocket').
+        Notes
+        -----
+            This method uses Matplotlib to create a 3D scatter plot of the convex hull points and nearby residues.
+            The convex hull is visualized with edges connecting the hull points, while the nearby residues are plotted
+            in a different color for distinction. The plot includes axis labels and a title indicating the cavity index
+            and method used.
         """
         # Create a 3D figure
         fig = plt.figure()
@@ -144,11 +193,21 @@ class CavityFinder:
     def calculate_centers_of_residues(self, residue_lines):
         """
         Calculates the geometric centers of residues based on ATOM entries.
-        Input:
-            residue_lines [list] - Lines of the PDB file containing ATOM entries.
-        Return:
-            [dict] A dictionary where the keys are residue identifiers 
+
+        Parameters
+        ----------
+            residue_lines : list
+                Lines of the PDB file containing ATOM entries.
+        Return
+        ------
+            dict
+                A dictionary where the keys are residue identifiers
                 and the values are their geometric centers.
+        Notes
+        -----
+            The geometric center of a residue is calculated as the mean of the coordinates
+            of all atoms belonging to that residue. The residue identifier is constructed
+            from the amino acid name, chain ID, and residue number.
         """
         residues = {}
         for line in residue_lines:
@@ -179,19 +238,23 @@ class CavityFinder:
         detected by different programs (e.g., fpocket, ligsite, surfnet, fukui).
         The report compares each pair of cavities (one from program A, one from program B),
         computes the Jaccard similarity between their residue sets, and outputs the result.
-        Input:
-            cavity_path [str]       - Path to the parent folder containing cavity subdirectories.
-            program_cavities [dict] - Mapping of program name to a list of cavity dictionaries.
-                                    Each cavity dict must contain 'residue_path' and 'residues'.
+        Parameters
+        ----------
+            cavity_path : str
+                Path to the parent folder containing cavity subdirectories.
+            program_cavities : dict
+                Mapping of program name to a list of cavity dictionaries.
+                Each cavity dict must contain 'residue_path' and 'residues'.
 
-        Output:
-            A CSV file named "<protein>_cavity_overlap.csv" saved inside `cavity_path`.
+        Notes
+        -----
+            A CSV file named "<protein>_cavity_overlap.csv" is saved inside `cavity_path`.
             Each row contains:
                 - Cavity A filename
                 - Program A
                 - Cavity B filename
                 - Program B
-                - Shared residue percentage (Jaccard similarity × 100)
+                - Shared residue percentage (Jaccard similarity x 100)
         """
         # Extract protein name based on the parent folder of the cavity_path
         protein_name = os.path.basename(os.path.dirname(cavity_path))
@@ -228,10 +291,21 @@ class CavityFinder:
     def compare_cavities(self, cavity_path):
         """
         Compares cavities across different programs (fpocket, ligsite, pocketfinder, surfnet, fukui).
-        Input:
-        cavity_path [str] - Path to the directory containing the subdirectories with cavities from different programs.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            cavity_path : str
+                Path to the directory containing the subdirectories with cavities from different programs.
+
+        Returns
+        -------
+            None
+
+        Notes
+        -----
+            This method reads cavity residue sets from each program, compares them based on residue similarity,
+            and assigns unique IDs to cavities that are considered similar. It also generates a CSV report
+            summarizing the overlap between cavities detected by different programs.
         """
         cavity_ids = {}
         current_id = 1
@@ -290,15 +364,26 @@ class CavityFinder:
 
     def add_fukushima_scores_to_csv(self, cavity_path, fukushima_results, fukui_results, fukushima_results_no_norm, fukushima_results_sum_norm):
         """
-        Adds average Fukushima, Fukui_pot_zero anf Fukushima sum scores to an existing cavity score CSV file.
-        Input:
-            cavity_path [str]                   - Path to the directory where the CSV file is located.
-            fukushima_results [dict]            - Dictionary mapping (program, residue_file) -> average Fukushima score.
-            fukui_results [dict]                - Dictionary mapping (program, residue_file) -> average Fukui_pot_zero score.
-            fukushima_results_no_norm [dict]    - Dictionary mapping (program, residue_file) -> sum of Fukushima score without normalizing by atoms number.
-            fukushima_results_sum_norm [dict]   - Dictionary mapping (program, residue_file) -> sum of Fukushima scores divided by the number of atoms with non-zero Fukushima values.
-        Return:
-            Nothing.
+        Adds average Fukushima, Fukui_pot_zero and Fukushima sum scores to an existing cavity score CSV file.
+
+        Parameters
+        ----------
+            cavity_path : str
+                Path to the directory where the CSV file is located.
+            fukushima_results : dict
+                Dictionary mapping (program, residue_file) -> average Fukushima score.
+            fukui_results : dict
+                Dictionary mapping (program, residue_file) -> average Fukui_pot_zero score.
+            fukushima_results_no_norm : dict
+                Dictionary mapping (program, residue_file) -> sum of Fukushima score without normalizing by atoms number.
+            fukushima_results_sum_norm : dict
+                Dictionary mapping (program, residue_file) -> sum of Fukushima scores divided by the number of atoms with non-zero Fukushima values.
+
+        Notes
+        -----
+            This method reads an existing CSV file containing cavity scores, adds new columns for the
+            average Fukushima, Fukui_pot_zero, and Fukushima sum scores, and writes the updated data back to the CSV.
+            If a score is not available for a given cavity, it will be filled with "0.0000".
         """
         # Extract the protein name based on the parent directory name
         protein_name = os.path.basename(os.path.dirname(cavity_path))
@@ -344,10 +429,20 @@ class CavityFinder:
     def find_cavities_in_directory(self):
         """
         Finds cavities when the input is a directory of files.
-        Input:
-            Nothing.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            None
+
+        Returns
+        -------
+            None
+
+        Notes
+        -----
+            This method processes each protein structure file in the input directory, running both Fpocket and ConCavity
+            to identify cavities. It then computes average scores for each cavity based on Fukui and Fukushima reactivity,
+            compares cavities across different methods, and generates CSV reports with the results.
         """
         fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_directory()
@@ -374,10 +469,20 @@ class CavityFinder:
     def find_cavities_in_file(self, protein_output_dir):
         """
         Finds cavities when the input is a single file.
-        Input:
-        protein_output_dir [str] - Directory where the protein output will be saved.
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            protein_output_dir : str
+                Directory where the protein output will be saved.
+        
+        Returns
+        -------
+            None
+
+        Notes
+        -----
+            This method processes a single protein structure file, running both Fpocket and ConCavity
+            to identify cavities. It then computes average scores for each cavity based on Fukui and Fukushima reactivity,
+            compares cavities across different methods, and generates CSV reports with the results.
         """
         cavities_output_dir = os.path.join(protein_output_dir, 'cavities')
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
@@ -398,10 +503,20 @@ class CavityFinder:
     def find_cavities(self):
         """
         Main method to find cavities in a file or a directory.
-        Input:
-            Nothing.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            None
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method determines whether the input path is a file or a directory and calls the appropriate
+            method to find cavities. It creates an output directory for the protein and ensures that all necessary
+            subdirectories are created for storing results.
         """
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
         protein_output_dir = os.path.join(self.output_path, base_name)
@@ -415,27 +530,54 @@ class ConCavityFinder(CavityFinder):
     def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
         """
         Initializes the ConCavity object, which is a subclass of Cavity.
-        Input:
-        input_path      [str]                - Path to the input file or directory containing the protein structure.
-        output_path     [str]                - Path where the Fpocket output will be saved.
-        verbose_handler [bool]               - Object to handle verbose output.
-        distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
-        similarity      [float] DEFAULT: 0.5 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
-        fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities on fpocket.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            input_path : str
+                Path to the input file or directory containing the protein structure.
+            output_path : str
+                Path where the Fpocket output will be saved.
+            verbose_handler : object
+                Object to handle verbose output.
+            distance : float, optional
+                Maximum allowed distance between grid points and residues when analyzing cavity proximity. Default is 6.0.
+            similarity : float, optional
+                Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar. Default is 0.5.
+            fpocket_score : float, optional
+                Threshold score for selecting cavities on fpocket. Default is 0.5.
+        
+        Returns
+        -------
+            None   
+        
+        Notes
+        -----
+            This class is specifically designed to handle the output from the ConCavity tool, which identifies potential binding cavities in protein structures.
+            It extends the functionality of the CavityFinder class to process cavity information and extract residues based on proximity to the identified cavities.
         """
         super().__init__(input_path, output_path, verbose_handler, distance, similarity, fpocket_score)
     
     def process_cavities(self, input_file, pockets_info, output_path, method):
         """
         Processes the pocket and residue information to identify and save residues close to each cavity.
-        Input:
-            pockets_info [str] - Path to the file containing pocket data (HETATM entries).
-            output_path [str]  - Directory where the output files will be saved.
-            method [str]       - The grid method used during the ConCavity analysis.
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            pockets_info : str
+                Path to the file containing pocket data (HETATM entries).
+            output_path : str
+                Directory where the output files will be saved.
+            method : str
+                The grid method used during the ConCavity analysis.
+        
+        Returns
+        -------
+            None    
+
+        Notes
+        -----
+            This method reads the pocket information from the specified file, extracts the coordinates of each cavity,
+            and calculates the geometric centers of residues from the input PDB file. It then identifies residues that are
+            within a specified distance from the convex hull of each cavity and saves this information to separate output files.
         """
         cavities = {}
         with open(pockets_info, 'r') as file:  # Read the pocket information from the specified pocket file
@@ -502,12 +644,23 @@ class ConCavityFinder(CavityFinder):
     def access_concavity(self, input_file, method_output_dir, method):
         """
         Accesses and processes the output files generated by the ConCavity analysis for a specific method.
-        Input:
-            input_file [str]        - Path to the input PDB file used for analysis.
-            method_output_dir [str] - Directory where the output files for the specific method are located.
-            method [str]            - The grid method used during the ConCavity analysis.
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            input_file : str
+                Path to the input PDB file used for analysis.
+            method_output_dir : str
+                Directory where the output files for the specific method are located.
+            method : str
+                The grid method used during the ConCavity analysis.
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method constructs the path to the pocket information file generated by ConCavity and calls the
+            `process_cavities` method to extract and save residues close to each identified cavity.
         """
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         pockets_info = f"{base_name}_{method}_pocket.pdb"
@@ -516,11 +669,22 @@ class ConCavityFinder(CavityFinder):
     def cleanup_files(self, input_file, method):
         """
         Cleans up temporary files generated during the analysis.
-        Input:
-            input_file [str] - Path to the input file used.
-            method [str]     - The grid method used, which helps identify specific files.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            input_file : str
+                Path to the input file used.
+            method : str
+                The grid method used, which helps identify specific files.
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method identifies and removes temporary files generated by the ConCavity tool for a specific method.
+            It constructs the expected filenames based on the input file and method, checks for their existence, and deletes them if found.
         """
         base_name = os.path.splitext(os.path.basename(input_file))[0]
         files_to_delete = [
@@ -541,10 +705,23 @@ class ConCavityFinder(CavityFinder):
     def run_concavity(self, input_file, output_path):
         """
         Runs the ConCavity tool on the specified input PDB file using various grid methods.
-        Input:
-            input_file [str] - Path to the input PDB file for analysis.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            input_file : str
+                Path to the input PDB file for analysis.
+            output_path : str
+                Path where the cavity output directories will be saved.
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method iterates through a predefined list of grid methods, constructs the command to run ConCavity for each method,
+            and executes it. After running ConCavity, it processes the output files to extract residues close to each identified cavity
+            and cleans up temporary files generated during the analysis.
         """
         grid_methods = ['pocketfinder', 'ligsite', 'surfnet'] # List of grid methods to be used in the ConCavity analysis
         for method in grid_methods: # Iterate through each grid method to process the input file
@@ -568,10 +745,15 @@ class ConCavityFinder(CavityFinder):
     def process_directory(self):
         """
         Processes all protein files in a directory for cavity detection using ConCavity.
-        Input:
-            Nothing.
-        Return:
-            Nothing.
+
+        Parameters
+        ---------- 
+            None
+
+        Return
+        ------
+            list
+                Paths to each protein's output directory.
         """
         output_dirs = []
         for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
@@ -589,25 +771,41 @@ class FpocketFinder(CavityFinder):
     def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
        """
         Initializes the FpocketFinder object, which is a subclass of Cavity.
-        Input:
-        input_path      [str]                - Path to the input file or directory containing the protein structure.
-        output_path     [str]                - Path where the Fpocket output will be saved.
-        verbose_handler [bool]               - Object to handle verbose output.
-        distance        [float] DEFAULT: 6.0 - Maximum allowed distance between grid points and residues when analyzing cavity proximity.
-        similarity      [float] DEFAULT: 0.5 - Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar.
-        fpocket_score   [float] DEFAULT: 0.5 - Threshold score for selecting cavities based on the druggability score.
-        Return:
-            Nothing.
+        Parameters
+        ----------
+            input_path : str
+                Path to the input file or directory containing the protein structure.
+            output_path : str
+                Path where the Fpocket output will be saved.
+            verbose_handler : object
+                Object to handle verbose output.
+            distance : float, optional
+                Maximum allowed distance between grid points and residues when analyzing cavity proximity. Default is 6.0.
+            similarity : float, optional
+                Threshold for residue similarity between cavities. Cavities with a similarity score equal to or above this value are considered similar. Default is 0.5.
+            fpocket_score : float, optional
+                Threshold score for selecting cavities based on the druggability score. Default is 0.5.
         """
        super().__init__(input_path, output_path, verbose_handler, distance, similarity, fpocket_score)
 
     def run_fpocket(self, input_file):
         """
         Executes the Fpocket program on a given protein file for cavity detection.
-        Input:
-            input_file [str] - Path to the protein file on which Fpocket will be run.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            input_file : str
+                Path to the protein file on which Fpocket will be run.
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method runs the Fpocket program using the specified input file. It suppresses the standard output and error streams
+            to avoid cluttering the console. If Fpocket encounters an error during execution, an assertion error is raised with a message
+            indicating the problem.
         """
         with open(os.devnull, 'w') as devnull:
             return_code = subprocess.call(['fpocket', '-f' + input_file], stdout=devnull, stderr=devnull)
@@ -617,10 +815,20 @@ class FpocketFinder(CavityFinder):
     def parse_info(pockets_info):
         """
         Parses the information from a file that lists properties of various pockets identified in a protein.
-        Input:
-            pockets_info [str] - Path to the text file containing pocket data.
-        Returns:
-            [list of dicts] A list of dictionaries, where each dictionary represents an individual pocket and its associated properties.
+
+        Parameters
+        ----------
+            pockets_info : str
+                Path to the text file containing pocket data.
+        Return
+        ------
+            list
+                A list of dictionaries, where each dictionary represents an individual pocket and its associated properties.
+
+        Notes
+        -----   
+            The method reads the specified file line by line, identifying pocket entries and their properties.
+            Each pocket entry starts with a line that begins with "Pocket" followed by its number, and subsequent lines contain key-value pairs representing various properties of that pocket.
         """
         # Open the file containing pocket information and read all lines
         with open(pockets_info, 'r') as file: 
@@ -644,11 +852,17 @@ class FpocketFinder(CavityFinder):
     def druggable_pockets(self, pockets_info, fpocket_score):
         """
         Filters pockets based on druggability score.
-        Input:
-            pockets_info [str]    - Path to the Fpocket output file containing pocket information.
-            fpocket_score [float] - The minimum score threshold to consider a pocket as druggable.
-        Return:
-            [list of dicts] A list of pockets that have a higher druggability score specified.
+
+        Parameters
+        ----------
+            pockets_info : str
+                Path to the Fpocket output file containing pocket information.
+            fpocket_score : float
+                The minimum score threshold to consider a pocket as druggable.
+        Return
+        ------
+            list
+                A list of pockets that have a higher druggability score specified.
         """
         pockets = self.parse_info(pockets_info)
         drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > fpocket_score]
@@ -657,11 +871,23 @@ class FpocketFinder(CavityFinder):
     def process_fpocket_residues(self, pockets_paths, input_file):
         """
         Processes the pocket files generated by fpocket and identifies residues close to each pocket's grid points or geometric centers.
-        Input:
-            pockets_paths [list of dicts] - List of dictionaries containing pocket paths and information.
-            input_file [str] - Path to the input protein file (.pdb format).
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            pockets_paths : list
+                List of dictionaries containing pocket paths and information.
+            input_file : str
+                Path to the input protein file (.pdb format).
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method reads the residue lines from the input protein file, calculates the geometric centers of residues,
+            and identifies residues that are close to the convex hull of each pocket's grid points. It saves the identified
+            residues to separate output files for each pocket.
         """
         # Read residue lines from the input protein file
         residue_lines = []
@@ -705,10 +931,16 @@ class FpocketFinder(CavityFinder):
     def access_pockets(self, input_file):
         """
         Retrieves paths to druggable pockets' files.
-        Input:
-            input_file [str] - Path to the input protein file.
-        Return:
-            [list of dicts] A list of dictionaries containing paths to each druggable pocket.
+
+        Parameters
+        ----------
+            input_file : str
+                Path to the input protein file.
+
+        Return
+        ------
+            list
+                A list of dictionaries containing paths to each druggable pocket.
         """
         dir_name = os.path.dirname(input_file)
         base_name = os.path.splitext(os.path.basename(input_file))[0]
@@ -726,11 +958,25 @@ class FpocketFinder(CavityFinder):
     def copy_and_cleanup(self, pockets_paths, input_file, output_path):
         """
         Copies pocket files to a dedicated directory and cleans up temporary folders after processing.
-        Input:
-            pockets_paths [list of dicts] - List of dictionaries containing information about each pocket.
-            input_file [str] - Path to the protein input file being processed.
-        Return:
-            [list of dicts] List of dictionaries for each pocket.
+
+        Parameters
+        ----------
+            pockets_paths : list
+                List of dictionaries containing information about each pocket.
+            input_file : str
+                Path to the protein input file being processed.
+            output_path : str
+                Path where the output will be saved.
+
+        Return
+        ------
+            list
+                List of dictionaries for each pocket.
+        
+        Notes
+        -----
+            This method creates a dedicated directory for storing pocket files, copies the relevant pocket files to this directory,
+            and removes any temporary folders created during the Fpocket analysis. It returns an updated list of pockets with their new paths.
         """
         updated_pockets_paths = []
         protein_output_dir = os.path.join(output_path, 'cavities')
@@ -755,10 +1001,20 @@ class FpocketFinder(CavityFinder):
     def process_file(self):
         """
         Processes a single protein file to extract cavities using Fpocket.
-        Input:
-            Nothing.
-        Return:
-            Nothing.
+
+        Parameters
+        ----------
+            None
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method runs Fpocket on the specified input protein file, retrieves the paths to druggable pockets,
+            copies the relevant pocket files to a dedicated output directory, and processes the residues associated
+            with each pocket. It ensures that all necessary directories are created and cleaned up as needed.
         """
         self.run_fpocket(self.input_path)
         pockets_info = self.access_pockets(self.input_path)
@@ -768,10 +1024,21 @@ class FpocketFinder(CavityFinder):
     def process_directory(self):
         """
         Processes all protein files in a directory for cavity detection using Fpocket.
-        Input:
-            Nothing.
-        Return:
-            [str] Paths to each protein's output directory.
+
+        Parameters
+        ----------
+            None
+        
+        Returns
+        -------
+            None
+        
+        Notes
+        -----
+            This method traverses through all files in the specified input directory, identifies protein structure files,
+            runs Fpocket on each file, retrieves the paths to druggable pockets, copies the relevant pocket files to a dedicated
+            output directory, and processes the residues associated with each pocket. It ensures that all necessary directories
+            are created and cleaned up as needed.
         """
         #protein_outputs = []
         for root, _, files in os.walk(self.input_path): # Traverse through all files in the specified input directory
