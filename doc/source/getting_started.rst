@@ -37,6 +37,11 @@ if you want to install external software automatically, you can use the followin
 
 ----
 
+Open new terminal and activate the conda environment or use the following command to source new changes in the current terminal:
+.. code-block:: bash
+
+    source ~/.bashrc
+
 Quickstart
 ----------
 
