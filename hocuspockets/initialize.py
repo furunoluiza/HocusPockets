@@ -29,7 +29,7 @@ import subprocess
 '''
     HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-    Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
+    Authors: Machado, L.F.; Torres, P.H.M.; Spelta, G.I.; Oliveira Filho, J.A., Pascutti, P.G.
 
     [Federal University of Rio de Janeiro]
 

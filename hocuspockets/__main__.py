@@ -30,7 +30,7 @@ from hocuspockets.reactivity import *
 '''
     HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
-    Authors: Machado, L.F.; Pascutti, P.G.; Torres, P.H.M.
+    Authors: Machado, L.F.; Torres, P.H.M.; Spelta, G.I.; Oliveira Filho, J.A., Pascutti, P.G.
 
     [Federal University of Rio de Janeiro]
 
@@ -75,10 +75,10 @@ def main():
     args = args_parse() 
     verbose_handler = VerboseHandler(args.output)
     print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
-    #verify_input(args, verbose_handler)
+    verify_input(args, verbose_handler)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
-    #reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler, eband_limit=args.eband_limit)
-    #reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
+    reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler, eband_limit=args.eband_limit)
+    reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
     cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.distance, args.similarity, args.fpocket_score)
     cavity_finder.find_cavities()
     print(clrs['g'] + "HocusPockets has completed it`s execution." + clrs['n'])
