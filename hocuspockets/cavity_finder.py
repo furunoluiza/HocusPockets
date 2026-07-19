@@ -238,6 +238,7 @@ class CavityFinder:
         detected by different programs (e.g., fpocket, ligsite, surfnet, fukui).
         The report compares each pair of cavities (one from program A, one from program B),
         computes the Jaccard similarity between their residue sets, and outputs the result.
+
         Parameters
         ----------
             cavity_path : str
@@ -250,11 +251,12 @@ class CavityFinder:
         -----
             A CSV file named "<protein>_cavity_overlap.csv" is saved inside `cavity_path`.
             Each row contains:
-                - Cavity A filename
-                - Program A
-                - Cavity B filename
-                - Program B
-                - Shared residue percentage (Jaccard similarity x 100)
+
+            - Cavity A filename
+            - Program A
+            - Cavity B filename
+            - Program B
+            - Shared residue percentage (Jaccard similarity x 100)
         """
         # Extract protein name based on the parent folder of the cavity_path
         protein_name = os.path.basename(os.path.dirname(cavity_path))

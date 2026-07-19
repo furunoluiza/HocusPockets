@@ -131,17 +131,20 @@ class CatalyticCav:
         """
         Parses a PDB file to extract B-factor values for individual atoms (not residues),
         mapping them to the corresponding residue and chain using the reference PDB order.
+
         Parameters
         ----------
             pdb_file : str
-                - PDB file with descriptor values encoded in B-factor.
+                PDB file with descriptor values encoded in B-factor.
             descriptor_name : str
-                - Name for logging ("Fukui", "Fukushima", etc).
+                Name for logging ("Fukui", "Fukushima", etc).
+
         Return
         ------
             atom_values : dict
-                - Maps 'chain:resSeqresName:atomName' → B-factor value
-                e.g. "A:42LYS:CA" → 0.054   
+                Maps 'chain:resSeqresName:atomName' → B-factor value
+                e.g. "A:42LYS:CA" → 0.054
+
         Notes
         -----
             The method assumes that the order of atoms in the input PDB file matches
