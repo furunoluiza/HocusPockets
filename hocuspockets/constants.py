@@ -12,3 +12,4 @@ PRIMORDIA_BINARY: str = "PRIMoRDiA_1.25v_LINUX64"
 GRID_METHODS: Tuple[str, ...] = ("pocketfinder", "ligsite", "surfnet")
 CAVITY_PROGRAMS: Tuple[str, ...] = ("fpocket", "ligsite", "surfnet", "pocketfinder", "fukui")
 AROMATIC_RESIDUES: set = {"PHE", "TYR", "HIS", "TRP"}
+DEFAULT_MOPAC_FLAGS: str = "PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4"

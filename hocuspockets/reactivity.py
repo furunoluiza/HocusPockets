@@ -25,7 +25,7 @@ import shutil
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
-from hocuspockets.constants import PRIMORDIA_BINARY
+from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,8 @@ logger = logging.getLogger(__name__)
 '''
 
 class Reactivity:
-    def __init__(self, input_path: str, output_path: str, logger: logging.Logger, eband_limit: int = 3) -> None:
+    def __init__(self, input_path: str, output_path: str, logger: logging.Logger,
+                 eband_limit: int = 3, mopac_flags: str = DEFAULT_MOPAC_FLAGS) -> None:
         """
         Initializes the Reactivity object for computing reactivity descriptors using
         MOPAC and PRIMoRDiA.
@@ -62,12 +63,16 @@ class Reactivity:
                 Logger instance for logging output messages.
             eband_limit : int, optional
                 Energy range limit (in eV) for orbital selection. Default is 3.
+            mopac_flags : str, optional
+                MOPAC keyword flags for the .mop header.
+                Default is "PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4".
         """
         self.input_path = input_path
         self.output_path = output_path
         self.logger = logger
         self.eband_limit = eband_limit
-    
+        self.mopac_flags = mopac_flags
+
     def run_primordia(self, primordia_file: str, primordia_dir: str) -> None:
         """
         Runs PRIMoRDiA on the given input file.
@@ -177,9 +182,9 @@ class Reactivity:
                 "accessible in your PATH. See https://openmopac.net/"
             )
             return None
-        
+
     @staticmethod
-    def create_mopac_file(input_file: str, protein_output_dir: str) -> str:
+    def create_mopac_file(input_file: str, protein_output_dir: str, mopac_flags: str = DEFAULT_MOPAC_FLAGS) -> str:
         """
         Converts a PDB file into a MOPAC-compatible .mop file, including a predefined header.
 
@@ -189,6 +194,9 @@ class Reactivity:
                 Path to the input PDB file.
             protein_output_dir : str
                 Directory where the resulting .mop file will be saved.
+            mopac_flags : str, optional
+                MOPAC keyword flags for the .mop header.
+                Default is "PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4".
 
         Return
         ------
@@ -197,11 +205,9 @@ class Reactivity:
         """
         # Define the name of the output .mop file
         mopac_file = os.path.join(protein_output_dir, os.path.basename(input_file).replace(".pdb", ".mop"))
-        # Define the MOPAC-specific header (includes PM7 method, solvent model, etc.)
-        header = """PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4
-        
-        
-"""     
+        # Define the MOPAC-specific header using user-supplied flags
+        header = mopac_flags.strip() + "\n"
+
         # Extract only ATOM lines from the PDB file
         atom_lines = []
         with open(input_file, "r") as pdb:
@@ -213,7 +219,7 @@ class Reactivity:
             mop.write(header)
             mop.write("\n".join(atom_lines))
         return mopac_file
-    
+
     def compress_file(self, file_path: str) -> Optional[str]:
         """
         Compress a file with gzip and remove the original.
@@ -264,7 +270,7 @@ class Reactivity:
                 os.makedirs(mopac_dir, exist_ok=True)
                 os.makedirs(primordia_dir, exist_ok=True)
                 self.logger.info(f"Processing reactivity for: {input_file}")
-                mopac_file = self.create_mopac_file(input_file, mopac_dir)
+                mopac_file = self.create_mopac_file(input_file, mopac_dir, self.mopac_flags)
                 output_aux = self.run_mopac(mopac_file, mopac_dir)
                 if output_aux is None:
                     self.logger.warning(f"Skipping PRIMoRDiA for {os.path.basename(input_file)} due to MOPAC failure.")
@@ -302,7 +308,7 @@ class Reactivity:
         ----------
             protein_output_dir : str
                 Path where output directories will be created.
-        
+
         Return
         ------
             None
@@ -317,7 +323,7 @@ class Reactivity:
         os.makedirs(mopac_dir, exist_ok=True)
         os.makedirs(primordia_dir, exist_ok=True)
         self.logger.info(f"Processing single file for reactivity: {self.input_path}")
-        mopac_file = self.create_mopac_file(self.input_path, mopac_dir)
+        mopac_file = self.create_mopac_file(self.input_path, mopac_dir, self.mopac_flags)
         output_aux = self.run_mopac(mopac_file, mopac_dir)
         if output_aux is None:
             self.logger.warning(f"Skipping PRIMoRDiA for {os.path.basename(self.input_path)} due to MOPAC failure.")
@@ -328,7 +334,7 @@ class Reactivity:
             gz_path = self.compress_file(output_aux)
             self.logger.info(f"Compressed AUX file -> {gz_path}")
         self.logger.info(f"Finished processing single file: {os.path.basename(self.input_path)}")
-        
+
     def find_reactivity(self, parallel: bool = False, n_jobs: Optional[int] = None) -> None:
         """
         Main method to find cavities in a file or a directory.
@@ -339,11 +345,11 @@ class Reactivity:
                 Whether to run tasks in parallel using threading.
             n_jobs : int, optional
                 Number of parallel threads to use.
-        
+
         Return
         ------
             None
-        
+
         Notes
         -----
             This method orchestrates the entire reactivity calculation workflow, handling both

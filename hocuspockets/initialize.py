@@ -21,7 +21,7 @@ import logging
 import argparse
 import textwrap as tw
 import subprocess
-from hocuspockets.constants import PRIMORDIA_BINARY
+from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS
 
 # License
 ###############################################################################
@@ -130,6 +130,13 @@ def args_parse() -> argparse.Namespace:
         '--verbose',
         action="store_true",
         help='Enable verbose logging to a file (verbose.log)'
+    )
+    parser.add_argument(
+        '--mopac-flags',
+        type=str,
+        default=DEFAULT_MOPAC_FLAGS,
+        metavar="FLAGS",
+        help=f'MOPAC keyword flags for the .mop header (default: "{DEFAULT_MOPAC_FLAGS}")'
     )
     args = parser.parse_args()
     print(description)

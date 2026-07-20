@@ -75,7 +75,7 @@ def main() -> None:
     print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
     verify_input(args, logger)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
-    reactivity_descriptors = Reactivity(args.input_path, output_path, logger, eband_limit=args.eband_limit)
+    reactivity_descriptors = Reactivity(args.input_path, output_path, logger, eband_limit=args.eband_limit, mopac_flags=args.mopac_flags)
     reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
     cavity_finder = CavityFinder(args.input_path, output_path, logger, args.distance, args.similarity, args.fpocket_score)
     cavity_finder.find_cavities()
