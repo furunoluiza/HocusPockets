@@ -9,7 +9,7 @@
     - Parses command-line arguments for input/output paths and analysis parameters.
     - Verifies the existence and format of the input (.pdb) files or directories.
     - Checks for the availability and correct installation of required external tools:
-    fpocket, ConCavity, PRIMoRDIA, and MOPAC.
+      fpocket, ConCavity, PRIMoRDIA, and MOPAC.
     - Logs detailed messages and warnings through a customizable verbose handler.
 
     This module ensures the environment is correctly configured before the main
@@ -54,13 +54,13 @@ clrs = {
 
 description = tw.dedent("""\033[1;95m
      _   _                      ____            _        _       
-    | | | | ___   ___ _   _ ___|  _ \ ___   ___| | _____| |_ ___ 
-    | |_| |/ _ \ / __| | | / __| |_) / _ \ / __| |/ / _ \ __/ __|
-    |  _  | (_) | (__| |_| \__ \  __/ (_) | (__|   <  __/ |_\__ \\
-    |_| |_|\___/ \___|\__,_|___/_|   \___/ \___|_|\_\___|\__|___/
+    | | | | ___   ___ _   _ ___|  _ \\ ___   ___| | _____| |_ ___ 
+    | |_| |/ _ \\ / __| | | / __| |_) / _ \\ / __| |/ / _ \\ __/ __|
+    |  _  | (_) | (__| |_| \\__ \\  __/ (_) | (__|   <  __/ |_\\__ \\\\
+    |_| |_|\\___/ \\___|\\__,_|___/_|   \\___/ \\___|_|\\_\\___|\\__|___/
 
          Holistic Computational Utility for Scoring Pockets
-             
+            
         \033[1;0m""")
 
 epilogue = tw.dedent("""
@@ -135,6 +135,11 @@ def args_parse():
         default=None,
         metavar="VALUE",
         help='Number of processes to use when running in parallel (default: all CPU cores)'
+    )
+    parser.add_argument(
+        '--verbose',
+        action="store_true",
+        help='Enable verbose logging to a file (verbose.log)'
     )
     args = parser.parse_args()
     print(description)

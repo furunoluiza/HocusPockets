@@ -78,12 +78,27 @@ class Reactivity:
         os.makedirs(primordia_dir, exist_ok=True)
         command = ["PRIMoRDiA_1.25v_LINUX64", "-f", primordia_file]
         self.verbose_handler.output(f"[INFO] Running PRIMoRDiA for: {primordia_file}")
-        result = subprocess.run(command, cwd=primordia_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if result.returncode != 0:
-            self.verbose_handler.output(f"[ERROR] PRIMoRDiA execution failed for: {primordia_file}")
-            return
-        else:
-            self.verbose_handler.output(f"[SUCESS] PRIMoRDIA completed for: {primordia_file}")
+        try:
+            result = subprocess.run(command, cwd=primordia_dir, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.PIPE, timeout=3600)
+            if result.returncode != 0:
+                error_msg = result.stderr.decode().strip() if result.stderr else "Unknown error"
+                self.verbose_handler.output(f"[ERROR] PRIMoRDiA execution failed for: {primordia_file}")
+                self.verbose_handler.output(f"[ERROR] Details: {error_msg}")
+                self.verbose_handler.output(
+                    "[ERROR] Possible causes: (1) PRIMoRDiA binary is not in PATH; "
+                    "(2) the MOPAC .aux file is missing or incomplete; "
+                    "(3) the protein structure could not be processed."
+                )
+                return
+            self.verbose_handler.output(f"[SUCCESS] PRIMoRDiA completed for: {primordia_file}")
+        except subprocess.TimeoutExpired:
+            self.verbose_handler.output(f"[ERROR] PRIMoRDiA timed out for: {primordia_file}")
+        except FileNotFoundError:
+            self.verbose_handler.output(
+                "[ERROR] PRIMoRDiA not found. Ensure 'PRIMoRDiA_1.25v_LINUX64' "
+                "is installed and accessible in your PATH."
+            )
 
     @staticmethod
     def create_primordia_file(input_path, output_aux, primordia_dir, eband_limit=3):
@@ -130,19 +145,34 @@ class Reactivity:
 
         Return
         ------
-            str
-                Path to the generated .aux output file.
+            str or None
+                Path to the generated .aux output file, or None if execution fails.
         """
         base_name = os.path.splitext(os.path.basename(mopac_file))[0]
-        # Define output file paths
         output_aux = os.path.join(reactivity_dir, f"{base_name}.aux")
         output_err = os.path.join(reactivity_dir, f"{base_name}.err")
         self.verbose_handler.output(f"[INFO] Running MOPAC for: {mopac_file}")
-        # Run MOPAC and capture errors in a dedicated error file
-        with open(output_err, 'w') as f:
-            process = subprocess.run(['mopac', mopac_file], cwd=reactivity_dir, 
-                                     stdout=subprocess.DEVNULL, stderr=f, check=True)
-        return output_aux
+        try:
+            with open(output_err, 'w') as f:
+                subprocess.run(['mopac', mopac_file], cwd=reactivity_dir,
+                               stdout=subprocess.DEVNULL, stderr=f, check=True)
+            return output_aux
+        except subprocess.CalledProcessError:
+            self.verbose_handler.output(f"[ERROR] MOPAC execution failed for: {mopac_file}")
+            self.verbose_handler.output(f"[ERROR] Check error log: {output_err}")
+            self.verbose_handler.output(
+                "[ERROR] Possible causes: (1) MOPAC is not properly installed or "
+                "not in PATH; (2) the protein structure contains unusual residues; "
+                "(3) the calculation did not converge. Try validating your PDB file "
+                "or reinstalling MOPAC from https://openmopac.net/"
+            )
+            return None
+        except FileNotFoundError:
+            self.verbose_handler.output(
+                "[ERROR] MOPAC not found. Ensure 'mopac' is installed and "
+                "accessible in your PATH. See https://openmopac.net/"
+            )
+            return None
         
     @staticmethod
     def create_mopac_file(input_file, protein_output_dir):
@@ -226,6 +256,9 @@ class Reactivity:
                 self.verbose_handler.output(f"[INFO] Processing reactivity for: {input_file}")
                 mopac_file = self.create_mopac_file(input_file, mopac_dir)
                 output_aux = self.run_mopac(mopac_file, mopac_dir)
+                if output_aux is None:
+                    self.verbose_handler.output(f"[WARNING] Skipping PRIMoRDiA for {os.path.basename(input_file)} due to MOPAC failure.")
+                    return
                 primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
                 self.run_primordia(primordia_file, primordia_dir)
                 if output_aux and os.path.isfile(output_aux):
@@ -278,6 +311,9 @@ class Reactivity:
         self.verbose_handler.output(f"[INFO] Processing single file for reactivity: {self.input_path}")
         mopac_file = self.create_mopac_file(self.input_path, mopac_dir)
         output_aux = self.run_mopac(mopac_file, mopac_dir)
+        if output_aux is None:
+            self.verbose_handler.output(f"[WARNING] Skipping PRIMoRDiA for {os.path.basename(self.input_path)} due to MOPAC failure.")
+            return
         primordia_file = self.create_primordia_file(self.input_path, output_aux, primordia_dir)
         self.run_primordia(primordia_file, primordia_dir)
         if output_aux and os.path.isfile(output_aux):

@@ -54,11 +54,15 @@ class VerboseHandler:
         output(message): Outputs the message to console or log file depending on verbosity.
         close(): Closes the log file if it was opened.
     """
-    def __init__(self, output_path):
-        self.log_file_path = os.path.join(output_path, 'verbose.log') if output_path else 'verbose.log'
-        self.log_file = open(self.log_file_path, 'w')
+    def __init__(self, output_path, verbose=False):
+        self.verbose = verbose
+        self.log_file = None
+        if verbose:
+            self.log_file_path = os.path.join(output_path, 'verbose.log') if output_path else 'verbose.log'
+            self.log_file = open(self.log_file_path, 'w')
 
     def output(self, message):
+        print(message)
         if self.log_file:
             self.log_file.write(message + '\n')
             self.log_file.flush()
@@ -73,7 +77,7 @@ def main():
     Main function that orchestrates the HocusPockets pipeline.
     """
     args = args_parse() 
-    verbose_handler = VerboseHandler(args.output)
+    verbose_handler = VerboseHandler(args.output, verbose=args.verbose)
     print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
     verify_input(args, verbose_handler)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()

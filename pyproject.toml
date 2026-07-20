@@ -1,3 +1,41 @@
 [build-system]
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "HocusPockets"
+version = "1.0.0"
+description = "HocusPockets: A Python Package for Identifying and Analyzing Pockets in Protein Structures."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Machado, L.F.", email = "luizafuruno@ufrj.br" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "matplotlib",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/furunoluiza/HocusPockets"
+Documentation = "https://furunoluiza.github.io/HocusPockets/"
+Repository = "https://github.com/furunoluiza/HocusPockets"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+analyse = ["seaborn", "scikit-learn"]
+docs = ["sphinx", "sphinx-rtd-theme"]
+
+[project.scripts]
+hocuspockets = "hocuspockets.__main__:main"
+hocuspockets-install = "hocuspockets.install_external:install_external_software"

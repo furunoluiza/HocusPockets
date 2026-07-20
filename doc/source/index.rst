@@ -1,12 +1,14 @@
 HocusPockets Documentation
-==================
+==========================
+
 .. image:: _static/HocusPockets_logo.png
    :width: 400px
    :align: center
 
-HocusPockets is a tool designed to prioritize biological targets within the proteome of microorganisms 
-based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as 
-Fukui indices to evaluate potential binding sites.
+HocusPockets is a tool designed to prioritize biological targets within the
+proteome of microorganisms based on the druggability of interaction sites and
+their chemical reactivity, utilizing descriptors such as Fukui indices to
+evaluate potential binding sites.
 
 ----
 
@@ -21,7 +23,7 @@ Fukui indices to evaluate potential binding sites.
    :caption: User Guide
 
    tutorial/quickstart
-   tutorial/selection_syntax.rst
+   tutorial/selection_syntax
 
 .. toctree::
    :maxdepth: 2
@@ -32,7 +34,5 @@ Fukui indices to evaluate potential binding sites.
 .. toctree::
    :maxdepth: 2
    :caption: API
-   
+
    api/modules
-   
-   hocuspockets
