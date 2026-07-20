@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 # Description
 ###############################################################################
@@ -16,13 +15,13 @@
     pocket analysis routines are executed.
 '''
 
-# Imports
-###############################################################################
 import os
 import sys
+import logging
 import argparse
 import textwrap as tw
 import subprocess
+from hocuspockets.constants import PRIMORDIA_BINARY
 
 # License
 ###############################################################################
@@ -41,16 +40,7 @@ import subprocess
     E-mail address: luizafuruno@ufrj.br
 '''
 
-# Dictionary for colors
-clrs = {
-    "r": "\033[1;91m", # red
-    "g": "\033[1;92m", # green
-    "y": "\033[1;93m", # yellow
-    "b": "\033[1;94m", # blue
-    "p": "\033[1;95m", # purple
-    "c": "\033[1;96m", # cyan
-    "n": "\033[1;0m", # default
-}
+logger = logging.getLogger(__name__)
 
 description = tw.dedent("""\033[1;95m
      _   _                      ____            _        _       
@@ -69,7 +59,7 @@ epilogue = tw.dedent("""
     enabling the ranking of potencial ligand-biding and druggable sites.
     """)
 
-def args_parse():
+def args_parse() -> argparse.Namespace:
     """
     Parses command-line arguments provided by the user.
     
@@ -145,19 +135,18 @@ def args_parse():
     print(description)
     return args
 
-def check_fpocket_installed(verbose_handler):
+def check_fpocket_installed(logger: logging.Logger) -> None:
     """
     Checks whether 'fpocket' is installed and accessible from the command line.
 
     Parameters
     ----------
-        verbose_handler : object
+        logger : logging.Logger
             Object responsible for displaying log messages.
-
     """
     try:
         subprocess.run(['fpocket', '--help'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        verbose_handler.output("'fpocket' is installed and accessible.")
+        logger.info("'fpocket' is installed and accessible.")
     except subprocess.CalledProcessError:
         print("Error: 'fpocket' is installed but could not be executed.")
         sys.exit(1)
@@ -165,18 +154,18 @@ def check_fpocket_installed(verbose_handler):
         print("Error: 'fpocket' is not installed. Please install it and try again.")
         sys.exit(1)
 
-def check_concavity_installed(verbose_handler):
+def check_concavity_installed(logger: logging.Logger) -> None:
     """
     Checks whether 'ConCavity' is installed and accessible from the command line.
 
     Parameters
     ----------
-        verbose_handler : object
+        logger : logging.Logger
             Object responsible for displaying log messages.
     """
     try:
         subprocess.run(['concavity'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        verbose_handler.output("'ConCavity' is installed and accessible.")
+        logger.info("'ConCavity' is installed and accessible.")
     except subprocess.CalledProcessError:
         print("Error: 'ConCavity' is installed but could not be executed.")
         sys.exit(1)
@@ -184,37 +173,37 @@ def check_concavity_installed(verbose_handler):
         print("Error: 'Concavity' is not installed. Please install it and try again.")
         sys.exit(1)
 
-def check_primordia_installed(verbose_handler):
+def check_primordia_installed(logger: logging.Logger) -> None:
     """
     Checks whether 'PRIMoRDIA' is installed and accessible from the command line.
 
     Parameters
     ----------
-        verbose_handler : object
+        logger : logging.Logger
             Object responsible for displaying log messages.
     """
     try:
         result = subprocess.run(
-            ['PRIMoRDiA_1.25v_LINUX64'],
+            [PRIMORDIA_BINARY],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
         if result.returncode == 0:
-            verbose_handler.output("'PRIMoRDIA' is installed and accessible.")
+            logger.info("'PRIMoRDIA' is installed and accessible.")
         else:
-            verbose_handler.output("'PRIMoRDIA' is installed but returned a non-zero exit code.")
-            verbose_handler.output(f"STDERR: {result.stderr.decode()}")
+            logger.warning("'PRIMoRDIA' is installed but returned a non-zero exit code.")
+            logger.warning(f"STDERR: {result.stderr.decode()}")
     except FileNotFoundError:
         print("Error: 'PRIMoRDIA' is not installed. Please install it and try again.")
         sys.exit(1)
 
-def check_mopac_installed(verbose_handler):
+def check_mopac_installed(logger: logging.Logger) -> None:
     """
     Checks whether 'MOPAC' is installed and accessible from the expected path.
 
     Parameters
     ----------
-        verbose_handler : object
+        logger : logging.Logger
             Object responsible for displaying log messages.
     """
     try:
@@ -225,12 +214,12 @@ def check_mopac_installed(verbose_handler):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
-        verbose_handler.output("'MOPAC' is installed and accessible.")
+        logger.info("'MOPAC' is installed and accessible.")
     except FileNotFoundError:
         print("Error: 'MOPAC' is not installed. Please install it and try again.")
         sys.exit(1)
 
-def verify_input(args, verbose_handler):
+def verify_input(args: argparse.Namespace, logger: logging.Logger) -> None:
     """
     Verifies that input and output paths are valid and that required tools are installed.
     
@@ -238,31 +227,30 @@ def verify_input(args, verbose_handler):
     ----------
         args : argparse.Namespace
             Parsed command-line arguments containing input/output paths and options.
-        verbose_handler : object
+        logger : logging.Logger
             Object responsible for displaying log messages.
     """
-    check_fpocket_installed(verbose_handler)
-    check_concavity_installed(verbose_handler)
-    check_primordia_installed(verbose_handler)
-    check_mopac_installed(verbose_handler)
+    check_fpocket_installed(logger)
+    check_concavity_installed(logger)
+    check_primordia_installed(logger)
+    check_mopac_installed(logger)
     if os.path.isfile(args.input_path):
         if not args.input_path.endswith(('.pdb')):
-            verbose_handler.output(f'The input file "{args.input_file}" must be a .pdb extension.')
+            logger.error(f'The input file "{args.input_path}" must be a .pdb extension.')
             sys.exit(1)
     elif os.path.isdir(args.input_path):
         files = os.listdir(args.input_path)
         pdb_files = [f for f in files if f.endswith(('.pdb'))]
         other_files = [f for f in files if not f.endswith(('.pdb'))]
         if len(pdb_files) == 0:
-            verbose_handler.output(f'The directory "{args.input_path}" does not contain any .pdb files.')
+            logger.error(f'The directory "{args.input_path}" does not contain any .pdb files.')
             sys.exit(1)
         for file in other_files:
-            verbose_handler.output(f'Warning: File "{file}" is not a .pdb. Skipping...')
-            sys.exit(1)
+            logger.warning(f'File "{file}" is not a .pdb. Skipping...')
     else:
-        verbose_handler.output(f'The input path "{args.input_path}" is neither a file nor a directory.')
+        logger.error(f'The input path "{args.input_path}" is neither a file nor a directory.')
         sys.exit(1)
     if args.output:
         if not os.path.isdir(args.output):
-            verbose_handler.output(f'The output path "{args.output}" does not exist or is not a directory.')
+            logger.error(f'The output path "{args.output}" does not exist or is not a directory.')
             sys.exit(1)

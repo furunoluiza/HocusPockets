@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 # Description
 ###############################################################################
@@ -21,14 +20,17 @@
     Note: The scoring weights and normalization strategy are still subject to validation.
 '''
 
-# Imports
-###############################################################################
 import os
 import csv
+import logging
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import ConvexHull, distance_matrix
+from hocuspockets.constants import HYDROPHOBICITY_SCALE, AROMATIC_RESIDUES
+from hocuspockets import pdb_utils
+
+logger = logging.getLogger(__name__)
 
 # License
 ###############################################################################
@@ -48,7 +50,7 @@ from scipy.spatial import ConvexHull, distance_matrix
 '''
 
 class ScoringPockets:
-    def __init__(self, input_path, output_path, verbose_handler):
+    def __init__(self, input_path: str, output_path: str, logger: logging.Logger) -> None:
         """
         Initializes the CavityFinder object.
 
@@ -62,8 +64,8 @@ class ScoringPockets:
                 Path to the input file or directory containing the protein structure.
             output_path : str
                 Path where the output will be saved.
-            verbose_handler : object
-                Object to handle verbose output.
+            logger : logging.Logger
+                Logger object to handle verbose output.
 
         Notes
         -----
@@ -72,14 +74,10 @@ class ScoringPockets:
         """
         self.input_path = input_path
         self.output_path = output_path
-        self.verbose_handler = verbose_handler
-        self.hydro = {"ALA": -0.17, "ARG": -0.81, "ASN": -0.42, "ASP": -1.23, "CYS": 0.24,
-                "GLN": -2.02, "GLU": -0.58, "GLY": -0.01, "HIS": -0.96, "ILE": 0.31,
-                "LEU": 0.56, "LYS": -0.99, "MET": 0.23, "PHE": 1.13, "PRO": -0.45,
-                "SER": -0.13, "THR": -0.14, "TRP": 1.85, "TYR": 0.94, "VAL": -0.07,
-                "MME": 0.23, "MSE": 0.23, "UNK": -0.17}
+        self.logger = logger
+        self.hydro = HYDROPHOBICITY_SCALE
         
-    def plot_cavity(self, coordinates, pocket_file):
+    def plot_cavity(self, coordinates: List[List[float]], pocket_file: str) -> None:
         """
         Plots a 3D representation of a cavity including its convex hull and atoms.
 
@@ -108,7 +106,7 @@ class ScoringPockets:
         plt.show()
 
     @staticmethod
-    def calculate_geometric_descriptors(lines, grid_file_path):
+    def calculate_geometric_descriptors(lines: List[str], grid_file_path: str) -> Tuple[float, float, float, float, float, float]:
         """
         Calculates the volume, surface area, radius, diameter, smallest size,
         and minimal enclosing cylinder for a cavity defined by atomic coordinates.
@@ -126,20 +124,9 @@ class ScoringPockets:
                 (volume, surface, radius, diameter, smallest_size, cylinder_radius)
                 Calculated geometric properties, or zeros if insufficient data is provided.
         """
-        coordinates = []
-        for line in lines:
-            if line.startswith("ATOM") or line.startswith("HETATM"):
-                try:
-                    x = float(line[30:38].strip())
-                    y = float(line[38:46].strip())
-                    z = float(line[46:54].strip())
-                    coordinates.append([x, y, z])
-                except (ValueError, IndexError) as e:
-                    print(f"Grid file:  {grid_file_path}")
-                    print(f"Error processing line: {line.strip()} - {e}")
-        if len(coordinates) < 4:  # At least four points are needed for a valid convex hull
+        coordinates = pdb_utils.extract_atom_coordinates(lines)
+        if len(coordinates) < 4:
             return 0, 0, 0, 0, 0, 0
-        coordinates = np.array(coordinates)
         # Compute Convex Hull
         hull = ConvexHull(coordinates)
         volume = hull.volume
@@ -153,7 +140,6 @@ class ScoringPockets:
         diameter = np.max(pairwise_distances)
         # Compute smallest size (distance between closest parallel enclosing planes)
         smallest_size = np.inf
-        best_planes = None
         for simplex in hull.simplices:
             # Get the three vertices forming the triangular face
             p1, p2, p3 = coordinates[simplex]
@@ -172,7 +158,6 @@ class ScoringPockets:
             # Check if this is the smallest valid enclosing pair of planes
             if plane_distance < smallest_size:
                 smallest_size = plane_distance
-                best_planes = (simplex, normal, plane_distance)
         # Compute minimal enclosing cylinder radius
         cylinder_radius = 0
         for axis in [[1, 0, 0], [0, 1, 0], [0, 0, 1]]:  # Test cylinders aligned with x, y, z axes
@@ -183,7 +168,7 @@ class ScoringPockets:
                 cylinder_radius = radius
         return volume, surface, radius, diameter, smallest_size, cylinder_radius
 
-    def calculate_residue_descriptors(self, residue_file):
+    def calculate_residue_descriptors(self, residue_file: str) -> Tuple[float, float, float, float]:
         """
         Calculates the average hydrophobicity of residues of the pocket,
         along with frequencies of aromatic residues and Tyr(OH) atoms.
@@ -206,7 +191,7 @@ class ScoringPockets:
         total_atom_count = 0
         carbon_atom_count = 0
         residues_seen = set()
-        aromatic_residues = {"PHE", "TYR", "HIS", "TRP"}
+        aromatic_residues = AROMATIC_RESIDUES
         with open(residue_file, 'r') as file:
             for line in file:
                 if line.startswith("ATOM"):
@@ -233,8 +218,9 @@ class ScoringPockets:
         return avg_hydro, aromatic_freq, tyr_oh_freq, carbon_freq
 
     @staticmethod
-    def score_cavity(volume, surface, diameter, smallest_size,
-                 hydrophobicity_score, aromatic_freq, otyr_freq, radius, cylinder_radius):
+    def score_cavity(volume: float, surface: float, diameter: float, smallest_size: float,
+                     hydrophobicity_score: float, aromatic_freq: float, otyr_freq: float,
+                     radius: float, cylinder_radius: float) -> float:
         """
         Calculates the cavity score as a simple mean of selected descriptors.
 
@@ -265,51 +251,18 @@ class ScoringPockets:
                 Average score of the selected descriptors.
         """
         values = [
-            volume,
-            surface,
-            diameter,
-            smallest_size,
-            hydrophobicity_score,
-            aromatic_freq,
-            otyr_freq,
-            radius,
-            cylinder_radius
+            volume, surface, diameter, smallest_size,
+            hydrophobicity_score, aromatic_freq, otyr_freq,
+            radius, cylinder_radius,
         ]
-        # Avoid division by zero if somehow list is empty
         return sum(values) / len(values) if values else 0.0
 
-    def calculate_geometric_center(self, pdb_lines):
-        """
-        Calculates the geometric center (centroid) of a cavity based on atomic coordinates.
-
-        Parameters
-        ----------
-            pdb_lines : list
-                Lines from a PDB file containing ATOM or HETATM entries.
-
-        Return
-        ------
-            tuple
-                (x, y, z) Geometric center coordinates in Angstroms.
-        """
-        coordinates = []
-        for line in pdb_lines:
-            if line.startswith("ATOM") or line.startswith("HETATM"):
-                try:
-                    x = float(line[30:38].strip())
-                    y = float(line[38:46].strip())
-                    z = float(line[46:54].strip())
-                    coordinates.append([x, y, z])
-                except (ValueError, IndexError):
-                    continue
-        if not coordinates:
-            return (0.0, 0.0, 0.0)
-        coords_np = np.array(coordinates)
-        center = np.mean(coords_np, axis=0)
+    def calculate_geometric_center(self, pdb_lines: List[str]) -> Tuple[float, float, float]:
+        center = pdb_utils.calculate_geometric_center(pdb_lines)
         return tuple(center)
 
         
-    def save_cavity_scores(self, cavity_path, scores):
+    def save_cavity_scores(self, cavity_path: str, scores: List[Dict[str, Any]]) -> None:
         """
         Saves the calculated cavity scores for different programs into a CSV file.
         
@@ -362,10 +315,23 @@ class ScoringPockets:
                     'Geom_Center': entry['geom_center'],  # string formatada "x, y, z"
                     'Score': f"{entry['score']:.2f}"
                 })
-        self.verbose_handler.output(f"[INFO] Cavity scores saved to {output_file}")
+        self.logger.info(f"Cavity scores saved to {output_file}")
 
 
-    def score_routine(self, cavity_path, program_cavities, cavity_ids):
+    def score_routine(self, cavity_path: str, program_cavities: Dict[str, List[Dict[str, Any]]], cavity_ids: Dict[Optional[str], int]) -> None:
+        """
+        Main scoring routine that processes cavities from different programs,
+        computes descriptors, and aggregates all scores.
+        
+        Parameters
+        ----------
+            cavity_path : str
+                Path to the cavity directory.
+            program_cavities : dict
+                Dictionary mapping program names to lists of cavity dictionaries.
+            cavity_ids : dict
+                Dictionary mapping grid file paths to cavity identifiers.
+        """
         protein_code = os.path.basename(os.path.dirname(cavity_path))
         scores = []
         for program, cavities in program_cavities.items():
@@ -374,7 +340,7 @@ class ScoringPockets:
                 residue_file_path = cavity['residue_path']
                 # Skip cavities without a grid file (e.g., Fukui-only cavities)
                 if grid_file_path is None:
-                    self.verbose_handler.output(f"[WARNING] Skipping cavity without grid: {residue_file_path}")
+                    self.logger.warning(f"Skipping cavity without grid: {residue_file_path}")
                     continue
                 cavity_id = cavity_ids.get(grid_file_path, None)
                 # Read grid lines and calculate volume

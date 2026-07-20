@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 # Description
 ###############################################################################
@@ -18,15 +17,21 @@
 
 # Imports
 ###############################################################################
+import os
+import csv
+import logging
 import subprocess
 import shutil
-import pandas as pd
+from typing import Dict, List
 import numpy as np
-from scipy.spatial import ConvexHull #volume
+from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
-from hocuspockets.initialize import *
-from hocuspockets.scoring_pockets import *
-from hocuspockets.catalytic_cav import *
+from hocuspockets.color import clrs
+from hocuspockets.constants import GRID_METHODS
+from hocuspockets.scoring_pockets import ScoringPockets
+from hocuspockets.catalytic_cav import CatalyticCav
+
+logger = logging.getLogger(__name__)
 
 # License
 ###############################################################################
@@ -46,7 +51,8 @@ from hocuspockets.catalytic_cav import *
 '''
 
 class CavityFinder:
-    def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
+    def __init__(self, input_path: str, output_path: str, logger: logging.Logger,
+                 distance: float, similarity: float, fpocket_score: float) -> None:
         """
         Initializes the CavityFinder object.
 
@@ -73,7 +79,7 @@ class CavityFinder:
         """
         self.input_path = input_path
         self.output_path = output_path
-        self.verbose_handler = verbose_handler
+        self.logger = logger
         self.distance = distance
         self.similarity = similarity
         self.fpocket_score = fpocket_score
@@ -290,7 +296,7 @@ class CavityFinder:
                                 f"{percent:.2f}"
                             ])
 
-    def compare_cavities(self, cavity_path):
+    def compare_cavities(self, cavity_path: str) -> None:
         """
         Compares cavities across different programs (fpocket, ligsite, pocketfinder, surfnet, fukui).
 
@@ -354,17 +360,17 @@ class CavityFinder:
                     for pocket_b in cavities_b:  # Loop through cavities of the second program
                         if self.compare_residues(pocket_a['residues'], pocket_b['residues']):  # Compare the residues from the two cavity files
                             if pocket_a['id'] != pocket_b['id']:
-                                self.verbose_handler.output(
+                                self.logger.info(
                                     f"[MATCH] Cavities {os.path.basename(pocket_a['residue_path'])} (from {prog_a}) and {os.path.basename(pocket_b['residue_path'])} (from {prog_b}) share high similarity.")
                             pocket_b['id'] = pocket_a['id']  # Ensure the second cavity has the same ID as the first one
                             cavity_ids[pocket_b['grid_path']] = pocket_a['id']  # Update the cavity ID dictionary
         # Step 3: Generate report and score cavities
         self.generate_overlap_report(cavity_path, program_cavities)
-        score_cavity = ScoringPockets(self.input_path, self.output_path, self.verbose_handler)
+        score_cavity = ScoringPockets(self.input_path, self.output_path, self.logger)
         score_cavity.score_routine(cavity_path, program_cavities, cavity_ids)
     
 
-    def add_fukushima_scores_to_csv(self, cavity_path, fukushima_results, fukui_results, fukushima_results_no_norm, fukushima_results_sum_norm):
+    def add_fukushima_scores_to_csv(self, cavity_path: str, results_fukushima: Dict, results_fukui: Dict, results_fukushima_no_norm: Dict, results_fukushima_sum_norm: Dict) -> None:
         """
         Adds average Fukushima, Fukui_pot_zero and Fukushima sum scores to an existing cavity score CSV file.
 
@@ -409,16 +415,16 @@ class CavityFinder:
             for row in reader:
                 key = (row['Program'], row['Residue_File'])
                 # Get Fukushima score
-                fuku_score = fukushima_results.get(key)
+                fuku_score = results_fukushima.get(key)
                 row['Fukushima_Score'] = f"{fuku_score:.4f}" if fuku_score is not None else "0.0000"
                 # Get Fukui score
-                fukui_score = fukui_results.get(key)
+                fukui_score = results_fukui.get(key)
                 row['Fukui_Score'] = f"{fukui_score:.4f}" if fukui_score is not None else "0.0000"
                 #Get Fukushima no norm score
-                fuku_no_norm_score = fukushima_results_no_norm.get(key)
+                fuku_no_norm_score = results_fukushima_no_norm.get(key)
                 row['Fukushima_Sum'] = f"{fuku_no_norm_score:.4f}" if fuku_no_norm_score is not None else "0.0000"
                 #Get Fukushima sum normalized by the number of atoms with non-zero Fukushima values 
-                fuku_sum_norm_score = fukushima_results_sum_norm.get(key)
+                fuku_sum_norm_score = results_fukushima_sum_norm.get(key)
                 row['Fukushima_Sum_Norm'] = f"{fuku_sum_norm_score:.4f}" if fuku_sum_norm_score is not None else "0.0000"
                 updated_rows.append(row)
         # Step 4: Write the updated CSV with the new fields
@@ -446,25 +452,24 @@ class CavityFinder:
             to identify cavities. It then computes average scores for each cavity based on Fukui and Fukushima reactivity,
             compares cavities across different methods, and generates CSV reports with the results.
         """
-        fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
+        fpocket_finder = FpocketFinder(self.input_path, self.output_path, self.logger, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_directory()
-        concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
+        concavity_finder = ConCavityFinder(self.input_path, self.output_path, self.logger, self.distance, self.similarity, self.fpocket_score)
         protein_output_dirs = concavity_finder.process_directory()
         for protein_output_dir in protein_output_dirs:
             try:
                 program_dir = os.path.join(protein_output_dir, 'cavities')  # Adiciona "cavities" ao final
                 protein_name = os.path.splitext(os.path.basename(protein_output_dir))[0]
                 input_pdb_file = os.path.join(self.input_path, protein_name + ".pdb")
-                rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
                 fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
                 fukushima_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukushima.pdb')
-                catalytic_cavity = CatalyticCav(program_dir, input_pdb_file, fukui_file, fukushima_file, self.verbose_handler)
+                catalytic_cavity = CatalyticCav(program_dir, input_pdb_file, fukui_file, fukushima_file, self.logger)
                 results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm  = catalytic_cavity.compute_average()
                 catalytic_cavity.process_fukui_cav()
                 self.compare_cavities(program_dir)
                 self.add_fukushima_scores_to_csv(program_dir, results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm)
             except Exception as e:
-                self.verbose_handler.output(f"[WARNING] Error processing: {protein_output_dir}: {e}")
+                self.logger.warning(f"[WARNING] Error processing: {protein_output_dir}: {e}")
                 continue
 
 
@@ -488,21 +493,20 @@ class CavityFinder:
         """
         cavities_output_dir = os.path.join(protein_output_dir, 'cavities')
         protein_name = os.path.splitext(os.path.basename(self.input_path))[0]
-        rslrd_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_residues.rslrd')
         fukui_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukui_pot_zero.pdb')
         fukushima_file = os.path.join(protein_output_dir, 'reactivity', 'primordia', protein_name + '_PDB_RD', protein_name + '_fukushima.pdb')
-        fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
+        fpocket_finder = FpocketFinder(self.input_path, protein_output_dir, self.logger, self.distance, self.similarity, self.fpocket_score)
         fpocket_finder.process_file()
-        concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.verbose_handler, self.distance, self.similarity, self.fpocket_score)
+        concavity_finder = ConCavityFinder(self.input_path, protein_output_dir, self.logger, self.distance, self.similarity, self.fpocket_score)
         concavity_finder.run_concavity(self.input_path, protein_output_dir)
-        catalytic_cavity = CatalyticCav(cavities_output_dir, self.input_path, fukui_file, fukushima_file, self.verbose_handler)
+        catalytic_cavity = CatalyticCav(cavities_output_dir, self.input_path, fukui_file, fukushima_file, self.logger)
         results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm = catalytic_cavity.compute_average()
         catalytic_cavity.process_fukui_cav()
         self.compare_cavities(cavities_output_dir)
         self.add_fukushima_scores_to_csv(cavities_output_dir, results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm)
         
     
-    def find_cavities(self):
+    def find_cavities(self) -> None:
         """
         Main method to find cavities in a file or a directory.
 
@@ -529,7 +533,8 @@ class CavityFinder:
             self.find_cavities_in_file(protein_output_dir)
 
 class ConCavityFinder(CavityFinder):
-    def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
+    def __init__(self, input_path: str, output_path: str, logger: logging.Logger,
+                 distance: float, similarity: float, fpocket_score: float) -> None:
         """
         Initializes the ConCavity object, which is a subclass of Cavity.
 
@@ -557,7 +562,7 @@ class ConCavityFinder(CavityFinder):
             This class is specifically designed to handle the output from the ConCavity tool, which identifies potential binding cavities in protein structures.
             It extends the functionality of the CavityFinder class to process cavity information and extract residues based on proximity to the identified cavities.
         """
-        super().__init__(input_path, output_path, verbose_handler, distance, similarity, fpocket_score)
+        super().__init__(input_path, output_path, logger, distance, similarity, fpocket_score)
     
     def process_cavities(self, input_file, pockets_info, output_path, method):
         """
@@ -605,9 +610,6 @@ class ConCavityFinder(CavityFinder):
                     atom_index = int(line[6:11].strip())  # Extract atom index (e.g., 0) as integer
                     residue_index = int(line[22:26].strip())  # Extract residue index (e.g., 0) as integer
                     
-                    # Combine atom and residue indices into a single value
-                    combined_index = f"{atom_index}_{residue_index}"
-                    
                     # Extract coordinates
                     x = float(line[30:38].strip())  # X coordinate
                     y = float(line[38:46].strip())  # Y coordinate
@@ -639,9 +641,7 @@ class ConCavityFinder(CavityFinder):
                 output_file = os.path.join(output_path, f"residue_{index}_{method}.pdb")
                 with open(output_file, 'w') as out_file:
                     out_file.writelines(close_residue_lines)
-                # Plot the convex hull and nearby residue centers (optional)
-                residue_coords = np.array([residue_centers[res_id] for res_id in close_residues])
-                #self.plot_hull_and_residues(hull_points, residue_coords, index, method)
+                #self.plot_hull_and_residues(hull_points, None, index, method)
 
     def access_concavity(self, input_file, method_output_dir, method):
         """
@@ -704,7 +704,7 @@ class ConCavityFinder(CavityFinder):
             if os.path.exists(file_path):
                 os.remove(file_path) # Remove the file
 
-    def run_concavity(self, input_file, output_path):
+    def run_concavity(self, input_file: str, output_path: str) -> None:
         """
         Runs the ConCavity tool on the specified input PDB file using various grid methods.
 
@@ -725,7 +725,7 @@ class ConCavityFinder(CavityFinder):
             and executes it. After running ConCavity, it processes the output files to extract residues close to each identified cavity
             and cleans up temporary files generated during the analysis.
         """
-        grid_methods = ['pocketfinder', 'ligsite', 'surfnet'] # List of grid methods to be used in the ConCavity analysis
+        grid_methods = list(GRID_METHODS) # List of grid methods to be used in the ConCavity analysis
         for method in grid_methods: # Iterate through each grid method to process the input file
             method_output_dir = os.path.join(output_path, 'cavities', method)
             os.makedirs(method_output_dir, exist_ok=True)
@@ -744,7 +744,7 @@ class ConCavityFinder(CavityFinder):
             self.access_concavity(input_file, method_output_dir, method)
             self.cleanup_files(input_file, method)
 
-    def process_directory(self):
+    def process_directory(self) -> List[str]:
         """
         Processes all protein files in a directory for cavity detection using ConCavity.
 
@@ -770,7 +770,8 @@ class ConCavityFinder(CavityFinder):
         return (output_dirs)
 
 class FpocketFinder(CavityFinder):
-    def __init__(self, input_path, output_path, verbose_handler, distance, similarity, fpocket_score):
+    def __init__(self, input_path: str, output_path: str, logger: logging.Logger,
+                 distance: float, similarity: float, fpocket_score: float) -> None:
        """
         Initializes the FpocketFinder object, which is a subclass of Cavity.
         Parameters
@@ -788,9 +789,9 @@ class FpocketFinder(CavityFinder):
             fpocket_score : float, optional
                 Threshold score for selecting cavities based on the druggability score. Default is 0.5.
         """
-       super().__init__(input_path, output_path, verbose_handler, distance, similarity, fpocket_score)
+       super().__init__(input_path, output_path, logger, distance, similarity, fpocket_score)
 
-    def run_fpocket(self, input_file):
+    def run_fpocket(self, input_file: str) -> None:
         """
         Executes the Fpocket program on a given protein file for cavity detection.
 
@@ -814,7 +815,7 @@ class FpocketFinder(CavityFinder):
         assert return_code == 0, clrs['r'] + f'Problem running fpocket on {input_file}' + clrs['n']
 
     @staticmethod
-    def parse_info(pockets_info):
+    def parse_info(pockets_info: str) -> List[Dict[str, str]]:
         """
         Parses the information from a file that lists properties of various pockets identified in a protein.
 
@@ -851,7 +852,7 @@ class FpocketFinder(CavityFinder):
             pockets.append(current_pocket)
         return pockets
     
-    def druggable_pockets(self, pockets_info, fpocket_score):
+    def druggable_pockets(self, pockets_info: str, fpocket_score: float) -> List[Dict[str, str]]:
         """
         Filters pockets based on druggability score.
 
@@ -870,7 +871,7 @@ class FpocketFinder(CavityFinder):
         drug_pockets = [pocket for pocket in pockets if float(pocket['Druggability Score']) > fpocket_score]
         return drug_pockets
 
-    def process_fpocket_residues(self, pockets_paths, input_file):
+    def process_fpocket_residues(self, pockets_paths: List[Dict[str, str]], input_file: str) -> None:
         """
         Processes the pocket files generated by fpocket and identifies residues close to each pocket's grid points or geometric centers.
 
@@ -925,12 +926,10 @@ class FpocketFinder(CavityFinder):
             residue_output_file = os.path.join(os.path.dirname(pocket_path), f"residue_{pocket_number}_fpocket.pdb")
             with open(residue_output_file, 'w') as out_file:
                 out_file.writelines(close_residue_lines)
-            # Plot the convex hull and nearby residue centers (optional)
-            residue_coords = np.array([residue_centers[res_id] for res_id in close_residues])
-            #self.plot_hull_and_residues(pocket_points, residue_coords, pocket_number, "fpocket")
+            #self.plot_hull_and_residues(pocket_points, None, pocket_number, "fpocket")
 
 
-    def access_pockets(self, input_file):
+    def access_pockets(self, input_file: str) -> List[Dict[str, str]]:
         """
         Retrieves paths to druggable pockets' files.
 
@@ -946,7 +945,6 @@ class FpocketFinder(CavityFinder):
         """
         dir_name = os.path.dirname(input_file)
         base_name = os.path.splitext(os.path.basename(input_file))[0]
-        extension = os.path.splitext(input_file)[1]
         pockets_info = os.path.join(dir_name, f"{base_name}_out", f"{base_name}_info.txt")
         filtered_pockets = self.druggable_pockets(pockets_info, self.fpocket_score) # Get the filtered list of druggable pockets based on score threshold
         pockets_paths = []
@@ -957,7 +955,7 @@ class FpocketFinder(CavityFinder):
             pockets_paths.append(pocket)
         return pockets_paths
 
-    def copy_and_cleanup(self, pockets_paths, input_file, output_path):
+    def copy_and_cleanup(self, pockets_paths: List[Dict[str, str]], input_file: str, output_path: str) -> List[Dict[str, str]]:
         """
         Copies pocket files to a dedicated directory and cleans up temporary folders after processing.
 
@@ -1000,7 +998,7 @@ class FpocketFinder(CavityFinder):
             shutil.rmtree(out_dir)
         return updated_pockets_paths
 
-    def process_file(self):
+    def process_file(self) -> None:
         """
         Processes a single protein file to extract cavities using Fpocket.
 
@@ -1023,7 +1021,7 @@ class FpocketFinder(CavityFinder):
         updated_pockets_paths = self.copy_and_cleanup(pockets_info, self.input_path, self.output_path)
         self.process_fpocket_residues(updated_pockets_paths, self.input_path)
     
-    def process_directory(self):
+    def process_directory(self) -> None:
         """
         Processes all protein files in a directory for cavity detection using Fpocket.
 
