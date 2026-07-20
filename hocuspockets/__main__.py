@@ -1,4 +1,13 @@
-#!/usr/bin/env python3
+
+import logging
+import os
+import sys
+from typing import Optional
+
+from hocuspockets.initialize import args_parse, verify_input
+from hocuspockets.cavity_finder import CavityFinder
+from hocuspockets.reactivity import Reactivity
+from hocuspockets.color import clrs
 
 # Description
 ###############################################################################
@@ -18,13 +27,6 @@
     This script is intended to be run directly and should not be imported as a module.
 '''
 
-# Imports
-###############################################################################
-import os
-from hocuspockets.initialize import *
-from hocuspockets.cavity_finder import *
-from hocuspockets.reactivity import *
-
 # License
 ###############################################################################
 '''
@@ -42,52 +44,43 @@ from hocuspockets.reactivity import *
     E-mail address: luizafuruno@ufrj.br
 '''
 
-class VerboseHandler:
-    """
-    Handles verbose output and logging to file based on user preference.
 
-    Attributes:
-        log_file_path [str]: Path to the log file.
-        log_file [file object]: Opened log file for writing log messages.
+def setup_logging(output_path: Optional[str] = None, verbose: bool = False) -> logging.Logger:
+    logger = logging.getLogger('hocuspockets')
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    logger.handlers.clear()
 
-    Methods:
-        output(message): Outputs the message to console or log file depending on verbosity.
-        close(): Closes the log file if it was opened.
-    """
-    def __init__(self, output_path, verbose=False):
-        self.verbose = verbose
-        self.log_file = None
-        if verbose:
-            self.log_file_path = os.path.join(output_path, 'verbose.log') if output_path else 'verbose.log'
-            self.log_file = open(self.log_file_path, 'w')
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG if verbose else logging.INFO)
+    formatter = logging.Formatter('%(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
-    def output(self, message):
-        print(message)
-        if self.log_file:
-            self.log_file.write(message + '\n')
-            self.log_file.flush()
+    if verbose and output_path:
+        fh = logging.FileHandler(os.path.join(output_path, 'hocuspockets.log'))
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(fh)
 
-    def close(self):
-        if self.log_file:
-            self.log_file.close()
+    return logger
 
-# Main Function
-def main():
+
+def main() -> None:
     """
     Main function that orchestrates the HocusPockets pipeline.
     """
-    args = args_parse() 
-    verbose_handler = VerboseHandler(args.output, verbose=args.verbose)
-    print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
-    verify_input(args, verbose_handler)
-    output_path = os.path.abspath(args.output) if args.output else os.getcwd()
-    reactivity_descriptors = Reactivity(args.input_path, output_path, verbose_handler, eband_limit=args.eband_limit)
-    reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
-    cavity_finder = CavityFinder(args.input_path, output_path, verbose_handler, args.distance, args.similarity, args.fpocket_score)
-    cavity_finder.find_cavities()
-    print(clrs['g'] + "HocusPockets has completed it`s execution." + clrs['n'])
-    verbose_handler.close()
+    args = args_parse()
+    logger = setup_logging(args.output, verbose=args.verbose)
 
-# Execute
+    print(clrs['g'] + "Starting HocusPockets!" + clrs['n'])
+    verify_input(args, logger)
+    output_path = os.path.abspath(args.output) if args.output else os.getcwd()
+    reactivity_descriptors = Reactivity(args.input_path, output_path, logger, eband_limit=args.eband_limit)
+    reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
+    cavity_finder = CavityFinder(args.input_path, output_path, logger, args.distance, args.similarity, args.fpocket_score)
+    cavity_finder.find_cavities()
+    print(clrs['g'] + "HocusPockets has completed its execution." + clrs['n'])
+
+
 if __name__ == "__main__":
     main()
