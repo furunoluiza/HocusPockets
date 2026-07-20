@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 # Description
 ###############################################################################
@@ -37,16 +36,16 @@ class InstallExternalSoftware:
     def __init__(self, path: str=Path.home()):
         self.path = path
 
-    def install(self):
+    def install(self) -> None:
         """
         Install the required external software dependencies.
         """
         self.__install_fpocket()
         self.__install_mopac()
         self.__install_ConCavity()
-        self.__intall_primordia()
+        self.__install_primordia()
 
-    def __install_fpocket(self):
+    def __install_fpocket(self) -> None:
         """
         Install fpocket software.
         """
@@ -58,7 +57,7 @@ class InstallExternalSoftware:
         except subprocess.CalledProcessError as e:
             print(f"An error occurred while installing fpocket: {e}")    
 
-    def __install_mopac(self):
+    def __install_mopac(self) -> None:
         """
         Install mopac software.
         """
@@ -70,7 +69,7 @@ class InstallExternalSoftware:
         except subprocess.CalledProcessError as e:
             print(f"An error occurred while installing mopac: {e}")
     
-    def __install_ConCavity(self):
+    def __install_ConCavity(self) -> None:
         """
         Install ConCavity software.
         """
@@ -89,7 +88,7 @@ class InstallExternalSoftware:
         except Exception as e:
             print(f"An error occurred while updating .bashrc: {e}")
     
-    def __intall_primordia(self):
+    def __install_primordia(self) -> None:
         """
         Install Primordia software.
         """
@@ -110,7 +109,7 @@ class InstallExternalSoftware:
         
 
 
-def install_external_software():
+def install_external_software() -> None:
     """
     Install the required external software dependencies for HocusPockets.
     """
