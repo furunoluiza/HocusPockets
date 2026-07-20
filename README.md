@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Documentation](https://img.shields.io/badge/docs-Sphinx-purple.svg)](https://furunoluiza.github.io/HocusPockets/)
-[![DOI](https://img.shields.io/badge/doi-10.1101/2024.01.01.575590-blue)](https://doi.org/10.1101/2024.01.01.575590)
+[![DOI](https://img.shields.io/badge/doi-10.1101/2024.01.01.575590-blue)]
 
 HocusPockets (**Hol**istic **C**omputational **U**tility for **S**coring **Pockets**) is a tool designed to prioritize biological targets within the proteome of microorganisms based on the druggability of interaction sites and their chemical reactivity, utilizing descriptors such as Fukui indices to evaluate potential binding sites.
 
