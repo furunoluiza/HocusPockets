@@ -10,6 +10,7 @@
 import subprocess
 import urllib.request
 from pathlib import Path
+from hocuspockets.constants import MOPAC_BINARY
 
 # License
 ###############################################################################
@@ -63,7 +64,7 @@ class InstallExternalSoftware:
         """
         try:
             subprocess.run(
-                ["conda", "run", "-n", "HocusPockets", "conda", "install", "-y", "mopac"],
+                ["conda", "run", "-n", "HocusPockets", "conda", "install", "-y", MOPAC_BINARY],
                 check=True,
             )
         except subprocess.CalledProcessError as e:

@@ -25,7 +25,7 @@ import shutil
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
-from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS
+from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS, MOPAC_BINARY
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ class Reactivity:
         self.logger.info(f"Running MOPAC for: {mopac_file}")
         try:
             with open(output_err, 'w') as f:
-                subprocess.run(['mopac', mopac_file], cwd=reactivity_dir,
+                subprocess.run([MOPAC_BINARY, mopac_file], cwd=reactivity_dir,
                                stdout=subprocess.DEVNULL, stderr=f, check=True)
             return output_aux
         except subprocess.CalledProcessError:
@@ -178,7 +178,7 @@ class Reactivity:
             return None
         except FileNotFoundError:
             self.logger.error(
-                "MOPAC not found. Ensure 'mopac' is installed and "
+                f"MOPAC not found. Ensure '{MOPAC_BINARY}' is installed and "
                 "accessible in your PATH. See https://openmopac.net/"
             )
             return None

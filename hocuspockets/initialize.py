@@ -21,7 +21,7 @@ import logging
 import argparse
 import textwrap as tw
 import subprocess
-from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS
+from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS, MOPAC_BINARY
 
 # License
 ###############################################################################
@@ -215,7 +215,7 @@ def check_mopac_installed(logger: logging.Logger) -> None:
     """
     try:
         subprocess.run(
-            ['mopac'],
+            [MOPAC_BINARY],
             input=b'\n',
             check=True,
             stdout=subprocess.PIPE,
