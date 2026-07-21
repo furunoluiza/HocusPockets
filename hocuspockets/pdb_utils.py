@@ -1,24 +1,26 @@
-
 # Description
 ###############################################################################
-'''
-    This module provides utility functions for parsing and manipulating PDB
-    (Protein Data Bank) files used throughout the HocusPockets pipeline.
+"""
+This module provides utility functions for parsing and manipulating PDB
+(Protein Data Bank) files used throughout the HocusPockets pipeline.
 
-    It centralizes common PDB parsing operations such as extracting residue IDs,
-    atom coordinates, residue centers, and parsing B-factor values. Using these
-    utilities reduces code duplication across the cavity analysis modules.
-'''
+It centralizes common PDB parsing operations such as extracting residue IDs,
+atom coordinates, residue centers, and parsing B-factor values. Using these
+utilities reduces code duplication across the cavity analysis modules.
+"""
 
 # Imports
 ###############################################################################
+import logging
 from typing import Dict, List, Set, Tuple
 import numpy as np
 import numpy.typing as npt
 
+logger = logging.getLogger(__name__)
+
 # License
 ###############################################################################
-'''
+"""
     HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
     Authors: Machado, L.F.; Torres, P.H.M.; Spelta, G.I.; Oliveira Filho, J.A., Pascutti, P.G.
@@ -31,20 +33,20 @@ import numpy.typing as npt
     Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
     Health Sciences Centre - block G1-19
     E-mail address: luizafuruno@ufrj.br
-'''
+"""
 
 PDB_COLUMNS: Dict[str, Tuple[int, int]] = {
-    'record': (0, 6),
-    'atom_serial': (6, 11),
-    'atom_name': (12, 16),
-    'residue_name': (17, 20),
-    'chain': (21, 22),
-    'residue_seq': (22, 26),
-    'x': (30, 38),
-    'y': (38, 46),
-    'z': (46, 54),
-    'occupancy': (54, 60),
-    'bfactor': (60, 66),
+    "record": (0, 6),
+    "atom_serial": (6, 11),
+    "atom_name": (12, 16),
+    "residue_name": (17, 20),
+    "chain": (21, 22),
+    "residue_seq": (22, 26),
+    "x": (30, 38),
+    "y": (38, 46),
+    "z": (46, 54),
+    "occupancy": (54, 60),
+    "bfactor": (60, 66),
 }
 
 
@@ -65,10 +67,15 @@ def parse_pdb_lines(file_path: str, record_type: str = "ATOM") -> List[str]:
             List of lines from the PDB file that start with the given record type.
     """
     lines: List[str] = []
-    with open(file_path, 'r') as f:
-        for line in f:
-            if line.startswith(record_type):
-                lines.append(line)
+    try:
+        with open(file_path, "r") as f:
+            for line in f:
+                if line.startswith(record_type):
+                    lines.append(line)
+    except FileNotFoundError:
+        logger.warning("PDB file not found: %s", file_path)
+        return lines
+    logger.debug("Parsed %d %s lines from %s", len(lines), record_type, file_path)
     return lines
 
 
@@ -86,11 +93,13 @@ def extract_coordinates(line: str) -> npt.NDArray[np.float64]:
         numpy.ndarray
             1D array with three float values [x, y, z].
     """
-    return np.array([
-        float(line[30:38].strip()),
-        float(line[38:46].strip()),
-        float(line[46:54].strip()),
-    ])
+    return np.array(
+        [
+            float(line[30:38].strip()),
+            float(line[38:46].strip()),
+            float(line[46:54].strip()),
+        ]
+    )
 
 
 def extract_residue_id(line: str) -> str:
@@ -200,15 +209,21 @@ def extract_atom_coordinates(lines: List[str]) -> npt.NDArray[np.float64]:
             or an empty array if no valid coordinates are found.
     """
     coords: List[List[float]] = []
+    skipped = 0
     for line in lines:
         if line.startswith("ATOM") or line.startswith("HETATM"):
             try:
                 c = extract_coordinates(line).tolist()
                 coords.append(c)
             except (ValueError, IndexError):
+                skipped += 1
                 continue
+    if skipped:
+        logger.debug("Skipped %d lines with unparseable coordinates", skipped)
     if not coords:
+        logger.debug("No valid coordinates extracted from %d lines", len(lines))
         return np.empty((0, 3))
+    logger.debug("Extracted %d coordinates", len(coords))
     return np.array(coords)
 
 
@@ -260,7 +275,9 @@ def build_residue_index_map(pdb_path: str) -> Dict[int, str]:
     return residue_map
 
 
-def parse_bfactor_values(pdb_file: str, residue_map: Dict[int, str]) -> Dict[str, float]:
+def parse_bfactor_values(
+    pdb_file: str, residue_map: Dict[int, str]
+) -> Dict[str, float]:
     """
     Parses B-factor values from a PDB file, mapping atoms to their B-factors.
 
@@ -280,9 +297,17 @@ def parse_bfactor_values(pdb_file: str, residue_map: Dict[int, str]) -> Dict[str
     atom_values: Dict[str, float] = {}
     current_res_index: int | None = None
     res_id: str | None = None
+    skipped = 0
+    mapped = 0
 
-    with open(pdb_file, 'r') as f:
-        for line in f:
+    try:
+        fh = open(pdb_file, "r")
+    except FileNotFoundError:
+        logger.warning("B-factor PDB file not found: %s", pdb_file)
+        return atom_values
+
+    with fh:
+        for line in fh:
             if not line.startswith("ATOM"):
                 continue
 
@@ -291,6 +316,7 @@ def parse_bfactor_values(pdb_file: str, residue_map: Dict[int, str]) -> Dict[str
                 atom_name = line[12:16].strip()
                 bfactor = float(line[60:66].strip())
             except ValueError:
+                skipped += 1
                 continue
 
             if res_index != current_res_index:
@@ -298,9 +324,17 @@ def parse_bfactor_values(pdb_file: str, residue_map: Dict[int, str]) -> Dict[str
                 current_res_index = res_index
 
             if not res_id:
+                skipped += 1
                 continue
 
             atom_key = f"{res_id}:{atom_name}"
             atom_values[atom_key] = bfactor
+            mapped += 1
 
+    logger.debug(
+        "Parsed %d B-factor values from %s (%d lines skipped)",
+        mapped,
+        pdb_file,
+        skipped,
+    )
     return atom_values

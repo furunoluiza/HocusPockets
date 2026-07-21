@@ -1,23 +1,22 @@
-
 # Description
 ###############################################################################
-'''
-    This module defines the CatalyticCav class, which is responsible for analyzing
-    cavity residues based on quantum reactivity descriptors calculated by PRIMoRDiA,
-    specifically Fukui and Fukushima indices.
+"""
+This module defines the CatalyticCav class, which is responsible for analyzing
+cavity residues based on quantum reactivity descriptors calculated by PRIMoRDiA,
+specifically Fukui and Fukushima indices.
 
-    Key functionalities:
-    - Maps residues from the .rslrd descriptor file to full identifiers including chain ID,
-    using the original input PDB structure as reference.
-    - Computes average Fukui and Fukushima values for each predicted cavity from tools
-    such as Fpocket and ConCavity.
-    - Identifies catalytic residues by selecting those with atoms among the top 5% highest
-    Fukui potentials, and outputs a PDB file with their full atomic representation.
-    - Supports integration with other modules for comparative scoring and CSV reporting.
+Key functionalities:
+- Maps residues from the .rslrd descriptor file to full identifiers including chain ID,
+using the original input PDB structure as reference.
+- Computes average Fukui and Fukushima values for each predicted cavity from tools
+such as Fpocket and ConCavity.
+- Identifies catalytic residues by selecting those with atoms among the top 5% highest
+Fukui potentials, and outputs a PDB file with their full atomic representation.
+- Supports integration with other modules for comparative scoring and CSV reporting.
 
-    This module is a core component of the HocusPockets workflow for identifying and prioritizing
-    potentially druggable and catalytically relevant pockets in protein structures.
-'''
+This module is a core component of the HocusPockets workflow for identifying and prioritizing
+potentially druggable and catalytically relevant pockets in protein structures.
+"""
 
 import os
 import logging
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # License
 ###############################################################################
-'''
+"""
     HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
     Authors: Machado, L.F.; Torres, P.H.M.; Spelta, G.I.; Oliveira Filho, J.A., Pascutti, P.G.
@@ -42,12 +41,20 @@ logger = logging.getLogger(__name__)
     Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
     Health Sciences Centre - block G1-19
     E-mail address: luizafuruno@ufrj.br
-'''
+"""
+
 
 class CatalyticCav:
-    def __init__(self, cavities_path: str, pdb_path: str, fukui_file: str, fukushima_file: str, logger: logging.Logger) -> None:
+    def __init__(
+        self,
+        cavities_path: str,
+        pdb_path: str,
+        fukui_file: str,
+        fukushima_file: str,
+        logger: logging.Logger,
+    ) -> None:
         """
-        Initializes the CatalyticCav object to compute Fukui and Fukushima reactivity 
+        Initializes the CatalyticCav object to compute Fukui and Fukushima reactivity
         averages for cavities predicted by other tools.
 
         Parameters
@@ -69,15 +76,23 @@ class CatalyticCav:
         self.fukushima_file = fukushima_file
         self.logger = logger
         self.index_to_residue_id = self.extract_residue_index_mapping()
-        self.fukui_dict = self.load_bfactor_values(self.fukui_file, descriptor_name="Fukui")
-        self.fukushima_dict = self.load_bfactor_values(self.fukushima_file, descriptor_name="Fukushima")
+        self.fukui_dict = self.load_bfactor_values(
+            self.fukui_file, descriptor_name="Fukui"
+        )
+        self.fukushima_dict = self.load_bfactor_values(
+            self.fukushima_file, descriptor_name="Fukushima"
+        )
 
     def extract_residue_index_mapping(self) -> Dict[int, str]:
-            residue_map = pdb_utils.build_residue_index_map(self.pdb_path)
-            self.logger.info(f"Extracted {len(residue_map)} residues with chain IDs from PDB.")
-            return residue_map
+        residue_map = pdb_utils.build_residue_index_map(self.pdb_path)
+        self.logger.info(
+            f"Extracted {len(residue_map)} residues with chain IDs from PDB."
+        )
+        return residue_map
 
-    def load_bfactor_values(self, pdb_file: str, descriptor_name: str = "Descriptor") -> Dict[str, float]:
+    def load_bfactor_values(
+        self, pdb_file: str, descriptor_name: str = "Descriptor"
+    ) -> Dict[str, float]:
         """
         Parses a PDB file to extract B-factor values for individual atoms (not residues),
         mapping them to the corresponding residue and chain using the reference PDB order.
@@ -109,13 +124,22 @@ class CatalyticCav:
         self.logger.info(
             f"Parsed {len(atom_values)} atom-level {descriptor_name} values from: {os.path.basename(pdb_file)}"
         )
+        self.logger.debug(
+            "Loaded %d %s values from %s", len(atom_values), descriptor_name, pdb_file
+        )
         return atom_values
-
 
     def get_residues_from_pdb(self, pdb_path: str) -> Set[str]:
         return pdb_utils.extract_residue_ids(pdb_path)
 
-    def compute_average(self) -> Tuple[Dict[Tuple[str, str], Optional[float]], Dict[Tuple[str, str], Optional[float]], Dict[Tuple[str, str], float], Dict[Tuple[str, str], Optional[float]]]:
+    def compute_average(
+        self,
+    ) -> Tuple[
+        Dict[Tuple[str, str], Optional[float]],
+        Dict[Tuple[str, str], Optional[float]],
+        Dict[Tuple[str, str], float],
+        Dict[Tuple[str, str], Optional[float]],
+    ]:
         """
         Computes the average Fukui and Fukushima values for each cavity.
 
@@ -129,7 +153,7 @@ class CatalyticCav:
                 (results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm)
                 Dictionaries mapping cavity identifiers to computed averages.
         """
-        cavity_programs = [p for p in CAVITY_PROGRAMS if p != 'fukui']
+        cavity_programs = [p for p in CAVITY_PROGRAMS if p != "fukui"]
         results_fukushima = {}
         results_fukui = {}
         results_fukushima_no_norm = {}
@@ -141,8 +165,11 @@ class CatalyticCav:
                 self.logger.warning(f"Skipping missing cavity directory: {program_dir}")
                 continue
 
+            self.logger.debug("Computing averages for program: %s", program)
             for pocket_file in os.listdir(program_dir):
-                if not (pocket_file.startswith("residue") and pocket_file.endswith(".pdb")):
+                if not (
+                    pocket_file.startswith("residue") and pocket_file.endswith(".pdb")
+                ):
                     continue
 
                 pocket_path = os.path.join(program_dir, pocket_file)
@@ -151,7 +178,7 @@ class CatalyticCav:
                 atom_count = 0
                 active_atom_count = 0
 
-                with open(pocket_path, 'r') as pdb:
+                with open(pocket_path, "r") as pdb:
                     for line in pdb:
                         if not line.startswith("ATOM"):
                             continue
@@ -180,7 +207,11 @@ class CatalyticCav:
                 avg_fukui = total_fukui / atom_count if atom_count > 0 else None
                 avg_fukushima = total_fukushima / atom_count if atom_count > 0 else None
                 fukushima_no_norm = total_fukushima
-                fukushima_sum_norm = total_fukushima / active_atom_count if active_atom_count > 0 else None
+                fukushima_sum_norm = (
+                    total_fukushima / active_atom_count
+                    if active_atom_count > 0
+                    else None
+                )
 
                 results_fukui[(program, pocket_file)] = avg_fukui
                 results_fukushima[(program, pocket_file)] = avg_fukushima
@@ -193,8 +224,12 @@ class CatalyticCav:
                     f"Sum_Fukushima={fukushima_no_norm}, Norm_Fukushima={fukushima_sum_norm}"
                 )
 
-        return results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm
-
+        return (
+            results_fukushima,
+            results_fukui,
+            results_fukushima_no_norm,
+            results_fukushima_sum_norm,
+        )
 
     def process_fukui_cav(self) -> None:
         """
@@ -214,7 +249,7 @@ class CatalyticCav:
             return
         fukui_bfactors = []
         # Step 1: Extract B-factors from the Fukui PDB (assumed to be in same atom order as original PDB)
-        with open(self.fukui_file, 'r') as f:
+        with open(self.fukui_file, "r") as f:
             for line in f:
                 if line.startswith("ATOM"):
                     try:
@@ -230,10 +265,15 @@ class CatalyticCav:
         cutoff_index = int(0.95 * len(sorted_bf))
         cutoff_value = sorted_bf[cutoff_index]
         self.logger.info(f"Fukui cutoff: {cutoff_value:.4f} (top 5%)")
+        self.logger.debug(
+            "Fukui B-factor values parsed: %d, cutoff index: %d",
+            len(fukui_bfactors),
+            cutoff_index,
+        )
         # Step 3: Read original PDB and collect catalytic residues based on cutoff
         selected_residues = set()
         pdb_atoms = []
-        with open(self.pdb_path, 'r') as file:
+        with open(self.pdb_path, "r") as file:
             for i, line in enumerate(file):
                 if line.startswith("ATOM") and i < len(fukui_bfactors):
                     chain_id = line[21].strip()
@@ -244,11 +284,19 @@ class CatalyticCav:
                     if fukui_bfactors[i] >= cutoff_value:
                         selected_residues.add(res_id)
         # Step 4: Extract all atoms of selected residues
-        selected_lines = [line for line, res_id, _ in pdb_atoms if res_id in selected_residues]
+        selected_lines = [
+            line for line, res_id, _ in pdb_atoms if res_id in selected_residues
+        ]
         # Step 5: Save to output file
-        fukui_dir = os.path.join(self.cavities_path, 'fukui')
+        fukui_dir = os.path.join(self.cavities_path, "fukui")
         os.makedirs(fukui_dir, exist_ok=True)
-        output_file = os.path.join(fukui_dir, 'residue_0_fukui.pdb')
-        with open(output_file, 'w') as out:
+        output_file = os.path.join(fukui_dir, "residue_0_fukui.pdb")
+        with open(output_file, "w") as out:
             out.writelines(selected_lines)
         self.logger.info(f"Catalytic residues saved to: {output_file}")
+        self.logger.debug(
+            "Catalytic residues: %d selected out of %d residues (%d atoms written)",
+            len(selected_residues),
+            len(set(r for _, r, _ in pdb_atoms)),
+            len(selected_lines),
+        )
