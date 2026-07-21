@@ -1,21 +1,20 @@
-
 # Description
 ###############################################################################
-'''
-    This module defines the Reactivity class, which is responsible for calculating
-    quantum chemical reactivity descriptors for protein structures using MOPAC
-    (semi-empirical quantum chemistry) and PRIMoRDiA (electrostatic and orbital-based analysis).
+"""
+This module defines the Reactivity class, which is responsible for calculating
+quantum chemical reactivity descriptors for protein structures using MOPAC
+(semi-empirical quantum chemistry) and PRIMoRDiA (electrostatic and orbital-based analysis).
 
-    Main functionalities:
-    - Converts .pdb files into MOPAC-compatible .mop files with appropriate headers.
-    - Executes MOPAC and collects output (.aux files) for quantum calculations.
-    - Generates PRIMoRDiA input files based on MOPAC results and the original structure.
-    - Runs PRIMoRDiA to obtain residue-level electronic descriptors.
-    - Supports processing of individual files or batch processing of entire directories.
-    - Includes verbose logging support for integration with analysis pipelines.
+Main functionalities:
+- Converts .pdb files into MOPAC-compatible .mop files with appropriate headers.
+- Executes MOPAC and collects output (.aux files) for quantum calculations.
+- Generates PRIMoRDiA input files based on MOPAC results and the original structure.
+- Runs PRIMoRDiA to obtain residue-level electronic descriptors.
+- Supports processing of individual files or batch processing of entire directories.
+- Includes verbose logging support for integration with analysis pipelines.
 
-    This module is typically used as part of the HocusPockets workflow.
-'''
+This module is typically used as part of the HocusPockets workflow.
+"""
 
 import os
 import logging
@@ -31,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # License
 ###############################################################################
-'''
+"""
     HocusPockets: Holistic Computacional Utility for Scoring Pockets
 
     Authors: Machado, L.F.; Torres, P.H.M.; Spelta, G.I.; Oliveira Filho, J.A., Pascutti, P.G.
@@ -44,11 +43,18 @@ logger = logging.getLogger(__name__)
     Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
     Health Sciences Centre - block G1-19
     E-mail address: luizafuruno@ufrj.br
-'''
+"""
+
 
 class Reactivity:
-    def __init__(self, input_path: str, output_path: str, logger: logging.Logger,
-                 eband_limit: int = 3, mopac_flags: str = DEFAULT_MOPAC_FLAGS) -> None:
+    def __init__(
+        self,
+        input_path: str,
+        output_path: str,
+        logger: logging.Logger,
+        eband_limit: int = 3,
+        mopac_flags: str = DEFAULT_MOPAC_FLAGS,
+    ) -> None:
         """
         Initializes the Reactivity object for computing reactivity descriptors using
         MOPAC and PRIMoRDiA.
@@ -87,11 +93,19 @@ class Reactivity:
         os.makedirs(primordia_dir, exist_ok=True)
         command = [PRIMORDIA_BINARY, "-f", primordia_file]
         self.logger.info(f"Running PRIMoRDiA for: {primordia_file}")
+        self.logger.debug("PRIMoRDiA command: %s", " ".join(command))
         try:
-            result = subprocess.run(command, cwd=primordia_dir, stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.PIPE, timeout=3600)
+            result = subprocess.run(
+                command,
+                cwd=primordia_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=3600,
+            )
             if result.returncode != 0:
-                error_msg = result.stderr.decode().strip() if result.stderr else "Unknown error"
+                error_msg = (
+                    result.stderr.decode().strip() if result.stderr else "Unknown error"
+                )
                 self.logger.error(f"PRIMoRDiA execution failed for: {primordia_file}")
                 self.logger.error(f"Details: {error_msg}")
                 self.logger.error(
@@ -110,7 +124,9 @@ class Reactivity:
             )
 
     @staticmethod
-    def create_primordia_file(input_path: str, output_aux: str, primordia_dir: str, eband_limit: int = 3) -> str:
+    def create_primordia_file(
+        input_path: str, output_aux: str, primordia_dir: str, eband_limit: int = 3
+    ) -> str:
         """
         Creates a PRIMoRDiA input file using the .aux output from MOPAC
         and the original .pdb structure.
@@ -139,6 +155,9 @@ class Reactivity:
             f.write("#RT normal\n")
             f.write(f"#PR eband {eband_limit} Rscript\n")
             f.write(f"3 {output_aux} none 0 0 {abs_input_path} mopac 0 0 0 0 EW\n")
+        logger.debug(
+            "Created PRIMoRDiA input file: %s (eband=%d)", primordia_file, eband_limit
+        )
         return primordia_file
 
     def run_mopac(self, mopac_file: str, reactivity_dir: str) -> Optional[str]:
@@ -161,10 +180,18 @@ class Reactivity:
         output_aux = os.path.join(reactivity_dir, f"{base_name}.aux")
         output_err = os.path.join(reactivity_dir, f"{base_name}.err")
         self.logger.info(f"Running MOPAC for: {mopac_file}")
+        self.logger.debug(
+            "MOPAC command: %s %s (cwd=%s)", MOPAC_BINARY, mopac_file, reactivity_dir
+        )
         try:
-            with open(output_err, 'w') as f:
-                subprocess.run([MOPAC_BINARY, mopac_file], cwd=reactivity_dir,
-                               stdout=subprocess.DEVNULL, stderr=f, check=True)
+            with open(output_err, "w") as f:
+                subprocess.run(
+                    [MOPAC_BINARY, mopac_file],
+                    cwd=reactivity_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=f,
+                    check=True,
+                )
             return output_aux
         except subprocess.CalledProcessError:
             self.logger.error(f"MOPAC execution failed for: {mopac_file}")
@@ -184,7 +211,9 @@ class Reactivity:
             return None
 
     @staticmethod
-    def create_mopac_file(input_file: str, protein_output_dir: str, mopac_flags: str = DEFAULT_MOPAC_FLAGS) -> str:
+    def create_mopac_file(
+        input_file: str, protein_output_dir: str, mopac_flags: str = DEFAULT_MOPAC_FLAGS
+    ) -> str:
         """
         Converts a PDB file into a MOPAC-compatible .mop file, including a predefined header.
 
@@ -204,7 +233,9 @@ class Reactivity:
                 Path to the generated .mop file.
         """
         # Define the name of the output .mop file
-        mopac_file = os.path.join(protein_output_dir, os.path.basename(input_file).replace(".pdb", ".mop"))
+        mopac_file = os.path.join(
+            protein_output_dir, os.path.basename(input_file).replace(".pdb", ".mop")
+        )
         # Define the MOPAC-specific header using user-supplied flags
         header = mopac_flags.strip() + "\n"
 
@@ -218,6 +249,12 @@ class Reactivity:
         with open(mopac_file, "w") as mop:
             mop.write(header)
             mop.write("\n".join(atom_lines))
+        logger.debug(
+            "Created MOPAC file: %s (%d ATOM lines, flags: %s)",
+            mopac_file,
+            len(atom_lines),
+            mopac_flags,
+        )
         return mopac_file
 
     def compress_file(self, file_path: str) -> Optional[str]:
@@ -225,15 +262,19 @@ class Reactivity:
         Compress a file with gzip and remove the original.
         """
         if not os.path.isfile(file_path):
+            logger.debug("compress_file skipped: %s (not found)", file_path)
             return None
         gz_path = file_path + ".gz"
-        with open(file_path, 'rb') as f_in:
-            with gzip.open(gz_path, 'wb') as f_out:
+        with open(file_path, "rb") as f_in:
+            with gzip.open(gz_path, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)
         os.remove(file_path)
+        logger.debug("Compressed %s -> %s", file_path, gz_path)
         return gz_path
 
-    def process_directory(self, n_jobs: Optional[int] = None, parallel: bool = False) -> None:
+    def process_directory(
+        self, n_jobs: Optional[int] = None, parallel: bool = False
+    ) -> None:
         """
         Processes all .pdb protein files in the input directory and applies
         MOPAC and PRIMoRDIA calculations on each.
@@ -258,6 +299,10 @@ class Reactivity:
         if not pdb_files:
             self.logger.warning("No PDB files found.")
             return
+        self.logger.debug(
+            "Found %d PDB files to process in %s", len(pdb_files), self.input_path
+        )
+
         def worker(input_file):
             """Worker that runs MOPAC and PRIMoRDIA for one protein file."""
             protein_name = os.path.splitext(os.path.basename(input_file))[0]
@@ -270,12 +315,18 @@ class Reactivity:
                 os.makedirs(mopac_dir, exist_ok=True)
                 os.makedirs(primordia_dir, exist_ok=True)
                 self.logger.info(f"Processing reactivity for: {input_file}")
-                mopac_file = self.create_mopac_file(input_file, mopac_dir, self.mopac_flags)
+                mopac_file = self.create_mopac_file(
+                    input_file, mopac_dir, self.mopac_flags
+                )
                 output_aux = self.run_mopac(mopac_file, mopac_dir)
                 if output_aux is None:
-                    self.logger.warning(f"Skipping PRIMoRDiA for {os.path.basename(input_file)} due to MOPAC failure.")
+                    self.logger.warning(
+                        f"Skipping PRIMoRDiA for {os.path.basename(input_file)} due to MOPAC failure."
+                    )
                     return
-                primordia_file = self.create_primordia_file(input_file, output_aux, primordia_dir)
+                primordia_file = self.create_primordia_file(
+                    input_file, output_aux, primordia_dir
+                )
                 self.run_primordia(primordia_file, primordia_dir)
                 if output_aux and os.path.isfile(output_aux):
                     gz_path = self.compress_file(output_aux)
@@ -283,6 +334,7 @@ class Reactivity:
                 self.logger.info(f"Finished processing {os.path.basename(input_file)}")
             except Exception as e:
                 self.logger.error(f"Failed to process {input_file}: {e}")
+
         if parallel:
             if n_jobs is None or n_jobs < 1:
                 n_jobs = cpu_count()
@@ -323,19 +375,29 @@ class Reactivity:
         os.makedirs(mopac_dir, exist_ok=True)
         os.makedirs(primordia_dir, exist_ok=True)
         self.logger.info(f"Processing single file for reactivity: {self.input_path}")
-        mopac_file = self.create_mopac_file(self.input_path, mopac_dir, self.mopac_flags)
+        mopac_file = self.create_mopac_file(
+            self.input_path, mopac_dir, self.mopac_flags
+        )
         output_aux = self.run_mopac(mopac_file, mopac_dir)
         if output_aux is None:
-            self.logger.warning(f"Skipping PRIMoRDiA for {os.path.basename(self.input_path)} due to MOPAC failure.")
+            self.logger.warning(
+                f"Skipping PRIMoRDiA for {os.path.basename(self.input_path)} due to MOPAC failure."
+            )
             return
-        primordia_file = self.create_primordia_file(self.input_path, output_aux, primordia_dir)
+        primordia_file = self.create_primordia_file(
+            self.input_path, output_aux, primordia_dir
+        )
         self.run_primordia(primordia_file, primordia_dir)
         if output_aux and os.path.isfile(output_aux):
             gz_path = self.compress_file(output_aux)
             self.logger.info(f"Compressed AUX file -> {gz_path}")
-        self.logger.info(f"Finished processing single file: {os.path.basename(self.input_path)}")
+        self.logger.info(
+            f"Finished processing single file: {os.path.basename(self.input_path)}"
+        )
 
-    def find_reactivity(self, parallel: bool = False, n_jobs: Optional[int] = None) -> None:
+    def find_reactivity(
+        self, parallel: bool = False, n_jobs: Optional[int] = None
+    ) -> None:
         """
         Main method to find cavities in a file or a directory.
 
@@ -362,6 +424,9 @@ class Reactivity:
         base_name = os.path.splitext(os.path.basename(self.input_path))[0]
         protein_output_dir = os.path.join(self.output_path, base_name)
         os.makedirs(protein_output_dir, exist_ok=True)
+        self.logger.debug(
+            "find_reactivity: input=%s output=%s", self.input_path, protein_output_dir
+        )
         if os.path.isdir(self.input_path):
             self.process_directory(n_jobs=n_jobs, parallel=parallel)
         else:
