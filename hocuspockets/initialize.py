@@ -98,8 +98,7 @@ def args_parse() -> argparse.Namespace:
         type=float,
         default=0.5,
         metavar="VALUE",
-        choices=[x / 100 for x in range(1, 101)],
-        help="Minimum residue similarity threshold between pockets (default: 0.5)",
+        help="Minimum residue similarity threshold between pockets (0.0–1.0, default: 0.5)",
     )
     parser.add_argument(
         "--fpocket-score",
@@ -130,7 +129,7 @@ def args_parse() -> argparse.Namespace:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Enable verbose logging to a file (verbose.log)",
+        help="Enable verbose logging (writes hocuspockets.log to output directory)",
     )
     parser.add_argument(
         "--mopac-flags",
