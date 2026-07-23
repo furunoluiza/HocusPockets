@@ -150,7 +150,7 @@ class ScoringPockets:
         # Compute radius of the smallest enclosing sphere
         center = np.mean(coordinates, axis=0)
         distances = np.linalg.norm(coordinates - center, axis=1)
-        radius = np.max(distances)
+        enclosing_sphere_radius = np.max(distances)
         # Compute diameter (longest pairwise distance)
         pairwise_distances = distance_matrix(coordinates, coordinates)
         diameter = np.max(pairwise_distances)
@@ -185,10 +185,10 @@ class ScoringPockets:
             radial_distances = np.linalg.norm(
                 coordinates - np.outer(projection, axis), axis=1
             )
-            radius = np.max(radial_distances)
-            if radius < cylinder_radius or cylinder_radius == 0:
-                cylinder_radius = radius
-        return volume, surface, radius, diameter, smallest_size, cylinder_radius
+            cyl_radius = np.max(radial_distances)
+            if cylinder_radius == 0 or cyl_radius < cylinder_radius:
+                cylinder_radius = cyl_radius
+        return volume, surface, enclosing_sphere_radius, diameter, smallest_size, cylinder_radius
 
     def calculate_residue_descriptors(
         self, residue_file: str
