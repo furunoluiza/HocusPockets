@@ -12,7 +12,7 @@ utilities reduces code duplication across the cavity analysis modules.
 # Imports
 ###############################################################################
 import logging
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 import numpy as np
 import numpy.typing as npt
 
@@ -295,8 +295,9 @@ def parse_bfactor_values(
             Atom key (str) in "chain:seqResName:atomName" format -> B-factor value (float).
     """
     atom_values: Dict[str, float] = {}
-    current_res_index: int | None = None
-    res_id: str | None = None
+    current_res_number: Optional[int] = None
+    res_id: Optional[str] = None
+    seq_index = 0
     skipped = 0
     mapped = 0
 
@@ -312,16 +313,17 @@ def parse_bfactor_values(
                 continue
 
             try:
-                res_index = int(line[22:26].strip())
+                res_number = int(line[22:26].strip())
                 atom_name = line[12:16].strip()
                 bfactor = float(line[60:66].strip())
             except ValueError:
                 skipped += 1
                 continue
 
-            if res_index != current_res_index:
-                res_id = residue_map.get(res_index)
-                current_res_index = res_index
+            if res_number != current_res_number:
+                seq_index += 1
+                res_id = residue_map.get(seq_index)
+                current_res_number = res_number
 
             if not res_id:
                 skipped += 1
