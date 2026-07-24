@@ -5,24 +5,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from scipy.stats import gaussian_kde, ttest_ind
+from scipy.stats import ttest_ind
 from sklearn.metrics import roc_curve, auc, matthews_corrcoef
 
-plt.rcParams.update({
-    'font.family': 'sans-serif',
-    'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
-    'font.size': 10,
-    'axes.titlesize': 12,
-    'axes.labelsize': 11,
-    'xtick.labelsize': 11,
-    'ytick.labelsize': 11,
-    'legend.fontsize': 11,
-    'figure.dpi': 300,
-    'savefig.dpi': 300,
-    'lines.linewidth': 2,
-    'axes.linewidth': 1.2,
-    'grid.alpha': 0.3,
-})
+sns.set_theme(
+    style="white",
+    palette="colorblind",
+    font="Arial",
+    font_scale=1.5,
+    context="paper",
+    rc={
+        'figure.dpi': 300,
+        'savefig.dpi': 300,
+        'lines.linewidth': 2,
+        'axes.linewidth': 1.2,
+    },
+)
 
 def plot_boxplots_descriptors(summary_csv, output_dir="output_resultados"):
     os.makedirs(output_dir, exist_ok=True)
@@ -129,8 +127,6 @@ def plot_violin_descriptors(summary_csv, output_dir="violin_plots"):
         "Cylinder_Radius", "Hydrophobicity_Score", "Aromatic_Freq", "Carbon_Freq",
         "Otyr_Freq", "Fukui_Score", "Fukushima_Score", "Fukushima_Sum", "Fukushima_Sum_Norm"]
 
-    palette = {"Reference (EC)": "#0072B2", "Non-reference (NEC)": "#D55E00"}
-
     for desc in descriptors_to_plot:
         if desc not in df.columns:
             continue
@@ -154,8 +150,6 @@ def plot_violin_descriptors(summary_csv, output_dir="violin_plots"):
         ax = sns.violinplot(
             x="Class", y=desc, data=sub,
             order=["Reference (EC)", "Non-reference (NEC)"],
-            hue="Class",
-            palette=palette,
             inner="box",
             linewidth=1.5,
             legend=False
@@ -169,7 +163,7 @@ def plot_violin_descriptors(summary_csv, output_dir="violin_plots"):
             ax.set_ylim(top=y_pos * 1.15)
 
         ax.plot([0, 0, 1, 1], [y_pos, y_pos + h, y_pos + h, y_pos], lw=1.5, c='black')
-        ax.text(0.5, y_pos + h * 1.2, stars, ha='center', va='bottom', fontsize=12)
+        ax.text(0.5, y_pos + h * 1.2, stars, ha='center', va='bottom', fontsize=14)
 
         n_ref = len(drug_vals)
         n_non = len(non_vals)
@@ -177,11 +171,10 @@ def plot_violin_descriptors(summary_csv, output_dir="violin_plots"):
 
         plt.text(0.98, 0.98, f"Reference n={n_ref}\nNon-reference n={n_non}\n{p_value_str}",
                  transform=plt.gca().transAxes,
-                 ha="right", va="top", fontsize=9, color="gray")
+                 ha="right", va="top", fontsize=11, color="gray")
 
         plt.ylabel(desc_label)
         plt.xlabel("Class")
-        plt.grid(axis="y", linestyle="--", alpha=0.3)
 
         out_file = os.path.join(output_dir, f"violinplot_{desc}.png")
         plt.savefig(out_file, bbox_inches="tight")
@@ -233,15 +226,15 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_distributions"):
             if len(subset) == 0:
                 continue
             total_n += len(subset)
-            plt.hist(subset, bins=30, alpha=0.6, color=cor,
-                     label=f"{nome_legenda} (N = {len(subset)})")
+            sns.histplot(subset, bins=30, alpha=0.6, color=cor,
+                         label=f"{nome_legenda} (N = {len(subset)})", element="step")
 
         plt.xlabel(label_col)
         plt.ylabel("Number of cavities")
         plt.legend(frameon=False)
         plt.text(0.98, 0.95, f"Total N = {total_n}",
                  transform=plt.gca().transAxes, ha="right", va="top",
-                 fontsize=9, color="gray")
+                 fontsize=11, color="gray")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"hist_{score_col}.png"), dpi=300)
         plt.close()
@@ -255,15 +248,9 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_distributions"):
         for grupo_real, nome_legenda, cor in groups:
             subset = df.loc[df["Group"] == grupo_real, score_col].dropna()
             if len(subset) > 1:
-                x_min, x_max = subset.min(), subset.max()
-                if x_min == x_max:
-                    x_min -= 1e-6
-                    x_max += 1e-6
-                kde = gaussian_kde(subset)
-                x_vals = np.linspace(x_min, x_max, 300)
-                densidade = kde(x_vals)
-                plt.plot(x_vals, densidade, color=cor, lw=2.5,
-                         label=f"{nome_legenda} (N = {len(subset)})")
+                sns.kdeplot(subset, color=cor, linewidth=2.5,
+                            label=f"{nome_legenda} (N = {len(subset)})", cut=0,
+                            common_norm=False)
 
         plt.xlabel(label_col)
         plt.ylabel("Probability density")
@@ -351,31 +338,31 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_cumulative"):
         hits_list   = [100.0 * hits[k] / considered_proteins for k in ks]
         misses_list = [100.0 * (considered_proteins - hits[k]) / considered_proteins for k in ks]
 
-        x = np.arange(len(ks))
-        width = 0.3
+        bar_data = pd.DataFrame({
+            "Top": [f"Top {k}" for k in ks] * 2,
+            "Group": ["EC"] * 3 + ["NEC"] * 3,
+            "Proteins (%)": hits_list + misses_list,
+        })
 
         plt.figure(figsize=(8, 6))
-        bars1 = plt.bar(x - width/2, hits_list,   width, label="EC", color="#0072B2")
-        bars2 = plt.bar(x + width/2, misses_list, width, label="NEC", color="#D55E00")
+        ax = sns.barplot(data=bar_data, x="Top", y="Proteins (%)", hue="Group")
 
-        for bars in (bars1, bars2):
-            for bar in bars:
+        for container in ax.containers:
+            for bar in container:
                 yval = bar.get_height()
-                plt.text(
-                    bar.get_x() + bar.get_width()/2, yval + 1,
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2, yval + 1,
                     f"{yval:.1f}%",
-                    ha="center", va="bottom", fontsize=10, color="black"
+                    ha="center", va="bottom", fontsize=12, color="black"
                 )
 
-        plt.xticks(x, [f"Top {k}" for k in ks])
-        plt.ylabel("Proteins (%)")
-        plt.ylim(0, 105)
-        plt.legend(loc="upper left")
+        ax.set_ylim(0, 105)
+        ax.legend(loc="upper left", title="Group")
 
-        plt.text(
-            0.02, 0.88, f"N = {considered_proteins}",
-            transform=plt.gca().transAxes, ha="left", va="top",
-            fontsize=9, color="gray"
+        ax.text(
+            0.98, 0.95, f"N = {considered_proteins}",
+            transform=ax.transAxes, ha="right", va="top",
+            fontsize=11, color="gray"
         )
 
         out_path = os.path.join(output_dir, outname)
