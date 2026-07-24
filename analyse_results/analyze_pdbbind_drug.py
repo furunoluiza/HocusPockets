@@ -148,6 +148,38 @@ def plot_density(df, descriptor, label, output_dir, binary=False):
 
 
 # ============================================================
+# HISTOGRAM PLOT
+# ============================================================
+def plot_histogram(df, descriptor, label, output_dir, binary=False):
+    sub = df[["Categoria", descriptor]].dropna()
+    if binary:
+        sub = sub[sub["Categoria"].isin(["d", "n"])]
+
+    colors = {"d": "#0072B2", "b": "#F0E442", "n": "#D55E00"}
+    names = {"d": "Druggable", "b": "Borderline", "n": "Non-druggable"}
+
+    plt.figure(figsize=(8, 6))
+
+    for cat in ["d", "b", "n"]:
+        subset = sub[sub["Categoria"] == cat][descriptor].dropna()
+        if len(subset) == 0:
+            continue
+        sns.histplot(subset, bins=30, alpha=0.6, color=colors[cat],
+                     label=f"{names[cat]} (N = {len(subset)})", element="step")
+
+    plt.xlabel(label)
+    plt.ylabel("Number of targets")
+    plt.legend(frameon=False)
+    plt.tight_layout()
+
+    suffix = "_binary" if binary else "_multiclass"
+    out_path = os.path.join(output_dir, f"hist{suffix}_{descriptor}.png")
+    plt.savefig(out_path, dpi=300)
+    plt.close()
+    print(f"[OK] Histogram saved: {out_path}")
+
+
+# ============================================================
 # MAIN
 # ============================================================
 def main(spreadsheet):
@@ -189,8 +221,10 @@ def main(spreadsheet):
         print(f"\n[INFO] Processing {desc} ({label})")
 
         plot_multiclass_roc(df, desc, label, output_dir)
+        plot_histogram(df, desc, label, output_dir, binary=False)
         plot_density(df, desc, label, output_dir, binary=False)
         plot_binary_roc(df, desc, label, output_dir)
+        plot_histogram(df, desc, label, output_dir, binary=True)
         plot_density(df, desc, label, output_dir, binary=True)
 
     print("\n[DONE] All plots generated in:", output_dir)

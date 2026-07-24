@@ -219,22 +219,17 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_distributions"):
         # HISTOGRAM
         # ----------------------------------------------------------------------
         plt.figure(figsize=(8, 6))
-        total_n = 0
 
         for grupo_real, nome_legenda, cor in groups:
             subset = df.loc[df["Group"] == grupo_real, score_col].dropna()
             if len(subset) == 0:
                 continue
-            total_n += len(subset)
             sns.histplot(subset, bins=30, alpha=0.6, color=cor,
                          label=f"{nome_legenda} (N = {len(subset)})", element="step")
 
         plt.xlabel(label_col)
         plt.ylabel("Number of cavities")
         plt.legend(frameon=False)
-        plt.text(0.98, 0.95, f"Total N = {total_n}",
-                 transform=plt.gca().transAxes, ha="right", va="top",
-                 fontsize=11, color="gray")
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, f"hist_{score_col}.png"), dpi=300)
         plt.close()
@@ -271,7 +266,7 @@ def plot_distributions_and_roc(summary_csv, output_dir="output_distributions"):
         plt.plot([0, 1], [0, 1], color="gray", linestyle="--", lw=1.5)
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
-        plt.legend([f"AUC = {roc_auc:.3f}  |  N = {total_n}"], loc="lower right", frameon=False)
+        plt.legend([f"AUC = {roc_auc:.3f}  |  N = {len(y_true)}"], loc="lower right", frameon=False)
         plt.savefig(os.path.join(output_dir, f"roc_{score_col}.png"))
         plt.close()
 
