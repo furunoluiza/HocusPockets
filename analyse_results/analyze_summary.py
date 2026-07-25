@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import sys
 import pandas as pd
@@ -6,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from scipy.stats import gaussian_kde, ttest_ind
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, matthews_corrcoef, matthews_corrcoef
 
 def plot_boxplots_descriptors(summary_csv, output_dir="output_resultados"):
     os.makedirs(output_dir, exist_ok=True)
@@ -418,12 +417,97 @@ def plot_cumulative_from_scores(summary_csv, output_dir="output_resultados"):
         print(f"[INFO] Gráfico cumulativo ({label}) gerado em: {out_path}")
 
 
+def plot_binary_classification_table(summary_csv, output_dir="output_resultados"):
+    """
+    Gera CSV com métricas de classificação binária (AUC, acurácia, sensibilidade,
+    especificidade, F1, MCC, enriquecimento) para cada descritor quântico,
+    usando o threshold ótimo pelo índice de Youden.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    df = pd.read_csv(summary_csv)
+
+    df["IsReference"] = (
+        df["IsReference"]
+        .astype(str).str.strip().str.lower()
+        .map({"true": True, "false": False, "1": True, "0": False})
+        .fillna(False)
+    )
+
+    descritores = ["Fukui_Score", "Fukushima_Score", "Fukushima_Sum"]
+    y_true = df["IsReference"].astype(int).values
+
+    resultados = []
+    for col in descritores:
+        if col not in df.columns:
+            print(f"[AVISO] Coluna {col} não encontrada. Pulando.")
+            continue
+
+        y_score = pd.to_numeric(df[col], errors="coerce").values
+        mask = ~np.isnan(y_score)
+        if mask.sum() == 0:
+            continue
+
+        y_t = y_true[mask]
+        y_s = y_score[mask]
+
+        if len(np.unique(y_t)) < 2:
+            print(f"[AVISO] {col} não possui ambas as classes para classificação binária.")
+            continue
+
+        # ROC + Youden threshold
+        fpr, tpr, thresholds = roc_curve(y_t, y_s)
+        roc_auc = auc(fpr, tpr)
+        youden = tpr - fpr
+        best_idx = np.argmax(youden)
+        best_threshold = thresholds[best_idx]
+
+        # Classificação binária
+        y_pred = (y_s >= best_threshold).astype(int)
+
+        # Matriz de confusão
+        tp = np.sum((y_pred == 1) & (y_t == 1))
+        fp = np.sum((y_pred == 1) & (y_t == 0))
+        tn = np.sum((y_pred == 0) & (y_t == 0))
+        fn = np.sum((y_pred == 0) & (y_t == 1))
+
+        n_total = tp + fp + tn + fn
+        acuracia  = (tp + tn) / n_total if n_total > 0 else 0
+        sensib    = tp / (tp + fn) if (tp + fn) > 0 else 0
+        especif   = tn / (tn + fp) if (tn + fp) > 0 else 0
+        precisao  = tp / (tp + fp) if (tp + fp) > 0 else 0
+        f1        = 2 * precisao * sensib / (precisao + sensib) if (precisao + sensib) > 0 else 0
+        mcc       = matthews_corrcoef(y_t, y_pred)
+        prevalencia = (tp + fn) / n_total if n_total > 0 else 1
+        enriquec  = precisao / prevalencia if prevalencia > 0 and precisao > 0 else 1.0
+
+        resultados.append({
+            "Descritor": col,
+            "AUC": round(roc_auc, 4),
+            "Threshold": round(best_threshold, 4),
+            "Acurácia": round(acuracia, 4),
+            "Sensibilidade": round(sensib, 4),
+            "Especificidade": round(especif, 4),
+            "F1": round(f1, 4),
+            "MCC": round(mcc, 4),
+            "Enriquecimento": round(enriquec, 4),
+        })
+
+    if not resultados:
+        print("[AVISO] Nenhum descritor quântico encontrado para tabela de classificação binária.")
+        return
+
+    out_path = os.path.join(output_dir, "binary_classification_table.csv")
+    pd.DataFrame(resultados).to_csv(out_path, index=False)
+    print(f"[INFO] Tabela de classificação binária salva: {out_path}")
+
 def main(summary_csv):
     plot_violin_descriptors(summary_csv)
     plot_distributions_and_roc(summary_csv)
     plot_cumulative_from_scores(summary_csv)
+    plot_binary_classification_table(summary_csv)
 
-
+    # Tabela binária para o subgrupo sem borderline
+    # plot_binary_classification_table(summary_csv, output_dir="output_resultados", filename="binary_classification_table.csv")
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Uso: python analyze_summary.py <all_cavities_summary.csv>")
