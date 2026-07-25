@@ -14,6 +14,9 @@ Obtain a protein structure file in PDB or mmCIF format from the
 
     wget https://files.rcsb.org/download/1a30.pdb
 
+PDB files need to be preprocessed to remove water molecules, ligands and protonated residues. 
+You can use the pdb2pqr tool for this purpose.
+
 Step 2: Run HocusPockets
 -------------------------
 
