@@ -53,20 +53,21 @@ def main() -> None:
     verify_input(args, logger)
     output_path = os.path.abspath(args.output) if args.output else os.getcwd()
     reactivity_descriptors = Reactivity(
-        args.input_path,
-        output_path,
-        logger,
+        input_path = args.input_path,
+        output_path = output_path,
+        logger = logger,
         eband_limit=args.eband_limit,
         mopac_flags=args.mopac_flags,
     )
     reactivity_descriptors.find_reactivity(parallel=args.parallel, n_jobs=args.n_jobs)
     cavity_finder = CavityFinder(
-        args.input_path,
-        output_path,
-        logger,
-        args.distance,
-        args.similarity,
-        args.fpocket_score,
+        input_path = args.input_path,
+        output_path = output_path,
+        logger = logger,
+        distance = args.distance,
+        similarity = args.similarity,
+        fpocket_score = args.fpocket_score,
+        toggle_image = args.toggle_image
     )
     cavity_finder.find_cavities()
     logger.info(clrs["g"] + "HocusPockets has completed its execution." + clrs["n"])

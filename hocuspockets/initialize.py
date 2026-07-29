@@ -138,6 +138,11 @@ def args_parse() -> argparse.Namespace:
         metavar="FLAGS",
         help=f'MOPAC keyword flags for the .mop header (default: "{DEFAULT_MOPAC_FLAGS}")',
     )
+    parser.add_argument(
+        "--toggle-image",
+        action="store_true",
+        help="Enable image script generation for the output (default: disabled)"
+    )
     args = parser.parse_args()
     print(description)
     return args
