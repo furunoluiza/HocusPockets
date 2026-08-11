@@ -7,7 +7,7 @@ name = "HocusPockets"
 version = "1.0.0"
 description = "HocusPockets: A Python Package for Identifying and Analyzing Pockets in Protein Structures."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Machado, L.F.", email = "luizafuruno@ufrj.br" }
 ]
@@ -21,10 +21,13 @@ dependencies = [
 classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
     "Operating System :: OS Independent",
 ]
+
+[tool.setuptools.packages.find]
+include = ["hocuspockets*"]
+exclude = ["tests*", "analyse_results*", "database_pdbbind*"]
 
 [project.urls]
 Homepage = "https://github.com/furunoluiza/HocusPockets"

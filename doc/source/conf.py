@@ -38,5 +38,6 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     'navigation_depth': 4,
 }
+html_baseurl = 'https://furunoluiza.github.io/HocusPockets/'
 html_static_path = ['_static']
 exclude_patterns = ['_build', '**/__pycache__']
