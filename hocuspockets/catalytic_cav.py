@@ -138,7 +138,7 @@ class CatalyticCav:
         Dict[Tuple[str, str], Optional[float]],
         Dict[Tuple[str, str], Optional[float]],
         Dict[Tuple[str, str], float],
-        Dict[Tuple[str, str], Optional[float]],
+        #Dict[Tuple[str, str], Optional[float]],
     ]:
         """
         Computes the average Fukui and Fukushima values for each cavity.
@@ -150,14 +150,19 @@ class CatalyticCav:
         Return
         ------
             tuple
-                (results_fukushima, results_fukui, results_fukushima_no_norm, results_fukushima_sum_norm)
-                Dictionaries mapping cavity identifiers to computed averages.
+            (
+                results_fukushima,
+                results_fukui,
+                results_fukushima_no_norm
+            )
+            
+            Dictionaries mapping cavity identifiers to computed averages.
         """
         cavity_programs = [p for p in CAVITY_PROGRAMS if p != "fukui"]
         results_fukushima = {}
         results_fukui = {}
         results_fukushima_no_norm = {}
-        results_fukushima_sum_norm = {}
+        #results_fukushima_sum_norm = {}
 
         for program in cavity_programs:
             program_dir = os.path.join(self.cavities_path, program)
@@ -176,7 +181,7 @@ class CatalyticCav:
                 total_fukui = 0.0
                 total_fukushima = 0.0
                 atom_count = 0
-                active_atom_count = 0
+                #active_atom_count = 0
 
                 with open(pocket_path, "r") as pdb:
                     for line in pdb:
@@ -198,8 +203,8 @@ class CatalyticCav:
                         if atom_id in self.fukushima_dict:
                             val_fuku = self.fukushima_dict[atom_id]
                             total_fukushima += val_fuku
-                            if val_fuku != 0.0:
-                                active_atom_count += 1
+                            #if val_fuku != 0.0:
+                            #    active_atom_count += 1
 
                         atom_count += 1
 
@@ -207,96 +212,96 @@ class CatalyticCav:
                 avg_fukui = total_fukui / atom_count if atom_count > 0 else None
                 avg_fukushima = total_fukushima / atom_count if atom_count > 0 else None
                 fukushima_no_norm = total_fukushima
-                fukushima_sum_norm = (
-                    total_fukushima / active_atom_count
-                    if active_atom_count > 0
-                    else None
-                )
+                # fukushima_sum_norm = (
+                #     total_fukushima / active_atom_count
+                #     if active_atom_count > 0
+                #     else None
+                # )
 
                 results_fukui[(program, pocket_file)] = avg_fukui
                 results_fukushima[(program, pocket_file)] = avg_fukushima
                 results_fukushima_no_norm[(program, pocket_file)] = fukushima_no_norm
-                results_fukushima_sum_norm[(program, pocket_file)] = fukushima_sum_norm
+                #results_fukushima_sum_norm[(program, pocket_file)] = fukushima_sum_norm
 
                 self.logger.info(
-                    f"{program}/{pocket_file} → Atoms: {atom_count}, Active atoms: {active_atom_count}, "
+                    f"{program}/{pocket_file} → Atoms: {atom_count} "
                     f"Avg_Fukushima={avg_fukushima}, Avg_Fukui={avg_fukui}, "
-                    f"Sum_Fukushima={fukushima_no_norm}, Norm_Fukushima={fukushima_sum_norm}"
+                    f"Sum_Fukushima={fukushima_no_norm}"
                 )
 
         return (
             results_fukushima,
             results_fukui,
             results_fukushima_no_norm,
-            results_fukushima_sum_norm,
+            #results_fukushima_sum_norm,
         )
 
-    def process_fukui_cav(self) -> None:
-        """
-        Processes Fukui cavities by identifying residues with high Fukui potential
-        and writing them to output PDB files.
+    # def process_fukui_cav(self) -> None:
+    #     """
+    #     Processes Fukui cavities by identifying residues with high Fukui potential
+    #     and writing them to output PDB files.
 
-        Parameters
-        ----------
-            None
+    #     Parameters
+    #     ----------
+    #         None
 
-        Return
-        ------
-            None
-        """
-        if not os.path.exists(self.pdb_path):
-            self.logger.error(f"Original PDB file not found: {self.pdb_path}")
-            return
-        fukui_bfactors = []
-        # Step 1: Extract B-factors from the Fukui PDB (assumed to be in same atom order as original PDB)
-        with open(self.fukui_file, "r") as f:
-            for line in f:
-                if line.startswith("ATOM"):
-                    try:
-                        bfactor = float(line[60:66].strip())
-                        fukui_bfactors.append(bfactor)
-                    except ValueError:
-                        fukui_bfactors.append(0.0)
-        if not fukui_bfactors:
-            self.logger.warning("No B-factor values found in Fukui file.")
-            return
-        # Step 2: Compute cutoff
-        sorted_bf = sorted(fukui_bfactors)
-        cutoff_index = int(0.95 * len(sorted_bf))
-        cutoff_value = sorted_bf[cutoff_index]
-        self.logger.info(f"Fukui cutoff: {cutoff_value:.4f} (top 5%)")
-        self.logger.debug(
-            "Fukui B-factor values parsed: %d, cutoff index: %d",
-            len(fukui_bfactors),
-            cutoff_index,
-        )
-        # Step 3: Read original PDB and collect catalytic residues based on cutoff
-        selected_residues = set()
-        pdb_atoms = []
-        with open(self.pdb_path, "r") as file:
-            for i, line in enumerate(file):
-                if line.startswith("ATOM") and i < len(fukui_bfactors):
-                    chain_id = line[21].strip()
-                    res_seq = line[22:26].strip()
-                    res_name = line[17:20].strip()
-                    res_id = f"{chain_id}:{res_seq}{res_name}"
-                    pdb_atoms.append((line, res_id, fukui_bfactors[i]))
-                    if fukui_bfactors[i] >= cutoff_value:
-                        selected_residues.add(res_id)
-        # Step 4: Extract all atoms of selected residues
-        selected_lines = [
-            line for line, res_id, _ in pdb_atoms if res_id in selected_residues
-        ]
-        # Step 5: Save to output file
-        fukui_dir = os.path.join(self.cavities_path, "fukui")
-        os.makedirs(fukui_dir, exist_ok=True)
-        output_file = os.path.join(fukui_dir, "residue_0_fukui.pdb")
-        with open(output_file, "w") as out:
-            out.writelines(selected_lines)
-        self.logger.info(f"Catalytic residues saved to: {output_file}")
-        self.logger.debug(
-            "Catalytic residues: %d selected out of %d residues (%d atoms written)",
-            len(selected_residues),
-            len(set(r for _, r, _ in pdb_atoms)),
-            len(selected_lines),
-        )
+    #     Return
+    #     ------
+    #         None
+    #     """
+    #     if not os.path.exists(self.pdb_path):
+    #         self.logger.error(f"Original PDB file not found: {self.pdb_path}")
+    #         return
+    #     fukui_bfactors = []
+    #     # Step 1: Extract B-factors from the Fukui PDB (assumed to be in same atom order as original PDB)
+    #     with open(self.fukui_file, "r") as f:
+    #         for line in f:
+    #             if line.startswith("ATOM"):
+    #                 try:
+    #                     bfactor = float(line[60:66].strip())
+    #                     fukui_bfactors.append(bfactor)
+    #                 except ValueError:
+    #                     fukui_bfactors.append(0.0)
+    #     if not fukui_bfactors:
+    #         self.logger.warning("No B-factor values found in Fukui file.")
+    #         return
+    #     # Step 2: Compute cutoff
+    #     sorted_bf = sorted(fukui_bfactors)
+    #     cutoff_index = int(0.95 * len(sorted_bf))
+    #     cutoff_value = sorted_bf[cutoff_index]
+    #     self.logger.info(f"Fukui cutoff: {cutoff_value:.4f} (top 5%)")
+    #     self.logger.debug(
+    #         "Fukui B-factor values parsed: %d, cutoff index: %d",
+    #         len(fukui_bfactors),
+    #         cutoff_index,
+    #     )
+    #     # Step 3: Read original PDB and collect catalytic residues based on cutoff
+    #     selected_residues = set()
+    #     pdb_atoms = []
+    #     with open(self.pdb_path, "r") as file:
+    #         for i, line in enumerate(file):
+    #             if line.startswith("ATOM") and i < len(fukui_bfactors):
+    #                 chain_id = line[21].strip()
+    #                 res_seq = line[22:26].strip()
+    #                 res_name = line[17:20].strip()
+    #                 res_id = f"{chain_id}:{res_seq}{res_name}"
+    #                 pdb_atoms.append((line, res_id, fukui_bfactors[i]))
+    #                 if fukui_bfactors[i] >= cutoff_value:
+    #                     selected_residues.add(res_id)
+    #     # Step 4: Extract all atoms of selected residues
+    #     selected_lines = [
+    #         line for line, res_id, _ in pdb_atoms if res_id in selected_residues
+    #     ]
+    #     # Step 5: Save to output file
+    #     fukui_dir = os.path.join(self.cavities_path, "fukui")
+    #     os.makedirs(fukui_dir, exist_ok=True)
+    #     output_file = os.path.join(fukui_dir, "residue_0_fukui.pdb")
+    #     with open(output_file, "w") as out:
+    #         out.writelines(selected_lines)
+    #     self.logger.info(f"Catalytic residues saved to: {output_file}")
+    #     self.logger.debug(
+    #         "Catalytic residues: %d selected out of %d residues (%d atoms written)",
+    #         len(selected_residues),
+    #         len(set(r for _, r, _ in pdb_atoms)),
+    #         len(selected_lines),
+    #     )

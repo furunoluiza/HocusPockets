@@ -4,7 +4,7 @@
 This module implements the CavityFinder system, which is part of the HocusPockets framework
 for protein pocket detection, characterization, and scoring.
 
-It integrates multiple tools (Fpocket, ConCavity, Fukui-based analysis) to:
+It integrates multiple tools (Fpocket, ConCavity) to:
 - Identify potential binding cavities in protein structures.
 - Extract residues near cavity surfaces based on distance to convex hulls.
 - Compare cavity similarity across different methods using residue-based Jaccard index.
@@ -270,7 +270,7 @@ class CavityFinder:
     def generate_overlap_report(self, cavity_path, program_cavities):
         """
         Generates a CSV file reporting the percentage of residue overlap between all cavities
-        detected by different programs (e.g., fpocket, ligsite, surfnet, fukui).
+        detected by different programs (e.g., fpocket, ligsite, surfnet, fukui(Descontinued)).
         The report compares each pair of cavities (one from program A, one from program B),
         computes the Jaccard similarity between their residue sets, and outputs the result.
 
@@ -339,7 +339,7 @@ class CavityFinder:
 
     def compare_cavities(self, cavity_path: str) -> None:
         """
-        Compares cavities across different programs (fpocket, ligsite, pocketfinder, surfnet, fukui).
+        Compares cavities across different programs (fpocket, ligsite, pocketfinder, surfnet, fukui (Descontinued)).
 
         Parameters
         ----------
@@ -363,7 +363,7 @@ class CavityFinder:
             "ligsite",
             "surfnet",
             "pocketfinder",
-            "fukui",
+            #"fukui",
         ]  # List of directories corresponding to different cavity-detection programs #retirei pocketfinder
         program_cavities = {program: [] for program in cavity_directories}
         # Step 1: Load all cavity residue sets from each program
@@ -379,20 +379,21 @@ class CavityFinder:
                 is_grid = pocket_file.startswith("grid_") and pocket_file.endswith(
                     ".pdb"
                 )
-                is_fukui_residue = (
-                    program == "fukui"
-                    and pocket_file.startswith("residue_")
-                    and pocket_file.endswith(".pdb")
-                )
-                if is_grid or is_fukui_residue:
-                    if program == "fukui":
-                        # For fukui, there's no grid file. Use None explicitly.
-                        pocket_path = None
-                        residue_path = os.path.join(program_dir, pocket_file)
-                    else:
-                        pocket_path = os.path.join(program_dir, pocket_file)
-                        residue_file = pocket_file.replace("grid_", "residue_")
-                        residue_path = os.path.join(program_dir, residue_file)
+                # is_fukui_residue = (
+                #     program == "fukui"
+                #     and pocket_file.startswith("residue_")
+                #     and pocket_file.endswith(".pdb")
+                # )
+                # if is_grid or is_fukui_residue:
+                #     if program == "fukui":
+                #         # For fukui, there's no grid file. Use None explicitly.
+                #         pocket_path = None
+                #         residue_path = os.path.join(program_dir, pocket_file)
+                #     else:
+                if is_grid:
+                    pocket_path = os.path.join(program_dir, pocket_file)
+                    residue_file = pocket_file.replace("grid_", "residue_")
+                    residue_path = os.path.join(program_dir, residue_file)
                     if os.path.exists(residue_path):
                         residues = self.extract_residues_from_pdb(
                             residue_path
@@ -458,7 +459,7 @@ class CavityFinder:
         results_fukushima: Dict,
         results_fukui: Dict,
         results_fukushima_no_norm: Dict,
-        results_fukushima_sum_norm: Dict,
+        #results_fukushima_sum_norm: Dict,
     ) -> None:
         """
         Adds average Fukushima, Fukui_pot_zero and Fukushima sum scores to an existing cavity score CSV file.
@@ -473,7 +474,7 @@ class CavityFinder:
                 Dictionary mapping (program, residue_file) -> average Fukui_pot_zero score.
             fukushima_results_no_norm : dict
                 Dictionary mapping (program, residue_file) -> sum of Fukushima score without normalizing by atoms number.
-            fukushima_results_sum_norm : dict
+            fukushima_results_sum_norm : dict (Descontinued)
                 Dictionary mapping (program, residue_file) -> sum of Fukushima scores divided by the number of atoms with non-zero Fukushima values.
 
         Notes
@@ -498,8 +499,8 @@ class CavityFinder:
                 fieldnames.append("Fukui_Score")
             if "Fukushima_Sum" not in fieldnames:
                 fieldnames.append("Fukushima_Sum")
-            if "Fukushima_Sum_Norm" not in fieldnames:
-                fieldnames.append("Fukushima_Sum_Norm")
+            #if "Fukushima_Sum_Norm" not in fieldnames:
+            #    fieldnames.append("Fukushima_Sum_Norm")
             # Step 3: Update each row with scores if available
             for row in reader:
                 key = (row["Program"], row["Residue_File"])
@@ -521,12 +522,12 @@ class CavityFinder:
                     else "0.0000"
                 )
                 # Get Fukushima sum normalized by the number of atoms with non-zero Fukushima values
-                fuku_sum_norm_score = results_fukushima_sum_norm.get(key)
-                row["Fukushima_Sum_Norm"] = (
-                    f"{fuku_sum_norm_score:.4f}"
-                    if fuku_sum_norm_score is not None
-                    else "0.0000"
-                )
+                # fuku_sum_norm_score = results_fukushima_sum_norm.get(key)
+                # row["Fukushima_Sum_Norm"] = (
+                #     f"{fuku_sum_norm_score:.4f}"
+                #     if fuku_sum_norm_score is not None
+                #     else "0.0000"
+                # )
                 updated_rows.append(row)
         # Step 4: Write the updated CSV with the new fields
         with open(csv_file, "w", newline="", encoding="utf-8") as outfile:
@@ -604,16 +605,16 @@ class CavityFinder:
                     results_fukushima,
                     results_fukui,
                     results_fukushima_no_norm,
-                    results_fukushima_sum_norm,
+                    #results_fukushima_sum_norm,
                 ) = catalytic_cavity.compute_average()
-                catalytic_cavity.process_fukui_cav()
+                #catalytic_cavity.process_fukui_cav()
                 self.compare_cavities(program_dir)
                 self.add_fukushima_scores_to_csv(
                     program_dir,
                     results_fukushima,
                     results_fukui,
                     results_fukushima_no_norm,
-                    results_fukushima_sum_norm,
+                    #results_fukushima_sum_norm,
                 )
                 self.rank_cavities(program_dir)
                 self.create_ranked_output(
@@ -689,16 +690,16 @@ class CavityFinder:
             results_fukushima,
             results_fukui,
             results_fukushima_no_norm,
-            results_fukushima_sum_norm,
+            #results_fukushima_sum_norm,
         ) = catalytic_cavity.compute_average()
-        catalytic_cavity.process_fukui_cav()
+        #catalytic_cavity.process_fukui_cav()
         self.compare_cavities(cavities_output_dir)
         self.add_fukushima_scores_to_csv(
             cavities_output_dir,
             results_fukushima,
             results_fukui,
             results_fukushima_no_norm,
-            results_fukushima_sum_norm,
+            #results_fukushima_sum_norm,
         )
         self.rank_cavities(cavities_output_dir)
         self.create_ranked_output(
