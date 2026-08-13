@@ -10,7 +10,7 @@ Key functionalities include:
 diameter, minimal thickness, and cylindrical fit.
 - Calculating residue-based descriptors: average hydrophobicity, frequency of
 aromatic residues, and the presence of catalytic Tyr(OH) groups.
-- Aggregating these features into a composite cavity score (currently experimental).
+- Aggregating these features into a composite cavity score (currently experimental). (Descontinued)
 - Saving scores to structured CSV reports for further analysis or visualization.
 
 The scoring system is designed to assist in evaluating and ranking potential
@@ -195,7 +195,7 @@ class ScoringPockets:
     ) -> Tuple[float, float, float, float]:
         """
         Calculates the average hydrophobicity of residues of the pocket,
-        along with frequencies of aromatic residues and Tyr(OH) atoms.
+        along with frequencies of aromatic residues, Tyr(OH) atoms (descontinued), and carbon atom frequency.
 
         Parameters
         ----------
@@ -206,12 +206,12 @@ class ScoringPockets:
         ------
             tuple
                 A tuple with average hydrophobicity, aromatic residue frequency,
-                Tyr(OH) atom frequency, and carbon atom frequency.
+                Tyr(OH) atom frequency (descontinued), and carbon atom frequency.
         """
         total_hydro = 0.0
         residue_count = 0
         aromatic_count = 0
-        tyr_oh_count = 0
+        #tyr_oh_count = 0
         total_atom_count = 0
         carbon_atom_count = 0
         residues_seen = set()
@@ -233,69 +233,69 @@ class ScoringPockets:
                         total_hydro += self.hydro.get(residue_name, self.hydro["UNK"])
                         if residue_name in aromatic_residues:
                             aromatic_count += 1
-                    if residue_name == "TYR" and atom_name == "OH":
-                        tyr_oh_count += 1
+                    #if residue_name == "TYR" and atom_name == "OH":
+                    #    tyr_oh_count += 1
         avg_hydro = total_hydro / residue_count if residue_count > 0 else 0.0
         aromatic_freq = aromatic_count / residue_count if residue_count > 0 else 0.0
-        tyr_oh_freq = tyr_oh_count / residue_count if residue_count > 0 else 0.0
+        #tyr_oh_freq = tyr_oh_count / residue_count if residue_count > 0 else 0.0
         carbon_freq = (
             carbon_atom_count / total_atom_count if total_atom_count > 0 else 0.0
         )
-        return avg_hydro, aromatic_freq, tyr_oh_freq, carbon_freq
+        return avg_hydro, aromatic_freq, carbon_freq
 
-    @staticmethod
-    def score_cavity(
-        volume: float,
-        surface: float,
-        diameter: float,
-        smallest_size: float,
-        hydrophobicity_score: float,
-        aromatic_freq: float,
-        otyr_freq: float,
-        radius: float,
-        cylinder_radius: float,
-    ) -> float:
-        """
-        Calculates the cavity score as a simple mean of selected descriptors.
+    # @staticmethod
+    # def score_cavity(
+    #     volume: float,
+    #     surface: float,
+    #     diameter: float,
+    #     smallest_size: float,
+    #     hydrophobicity_score: float,
+    #     aromatic_freq: float,
+    #     #otyr_freq: float,
+    #     radius: float,
+    #     cylinder_radius: float,
+    # ) -> float:
+    #     """
+    #     Calculates the cavity score as a simple mean of selected descriptors.
 
-        Parameters
-        ----------
-            volume : float
-                Cavity volume.
-            surface : float
-                Cavity surface area.
-            diameter : float
-                Cavity diameter.
-            smallest_size : float
-                Smallest size of the cavity.
-            hydrophobicity_score : float
-                Average hydrophobicity score.
-            aromatic_freq : float
-                Aromatic residue frequency.
-            otyr_freq : float
-                Tyrosine OH frequency.
-            radius : float
-                Cavity radius.
-            cylinder_radius : float
-                Minimal enclosing cylinder radius.
+    #     Parameters
+    #     ----------
+    #         volume : float
+    #             Cavity volume.
+    #         surface : float
+    #             Cavity surface area.
+    #         diameter : float
+    #             Cavity diameter.
+    #         smallest_size : float
+    #             Smallest size of the cavity.
+    #         hydrophobicity_score : float
+    #             Average hydrophobicity score.
+    #         aromatic_freq : float
+    #             Aromatic residue frequency.
+    #         otyr_freq : float
+    #             Tyrosine OH frequency. (descontinued)
+    #         radius : float
+    #             Cavity radius.
+    #         cylinder_radius : float
+    #             Minimal enclosing cylinder radius.
 
-        Return
-        ------
-            float
-                Average score of the selected descriptors.
-        """
-        values = [
-            volume,
-            surface,
-            diameter,
-            smallest_size,
-            hydrophobicity_score,
-            aromatic_freq,
-            otyr_freq,
-            radius,
-            cylinder_radius,
-        ]
-        return sum(values) / len(values) if values else 0.0
+    #     Return
+    #     ------
+    #         float
+    #             Average score of the selected descriptors.
+    #     """
+    #     values = [
+    #         volume,
+    #         surface,
+    #         diameter,
+    #         smallest_size,
+    #         hydrophobicity_score,
+    #         aromatic_freq,
+    #         #otyr_freq,
+    #         radius,
+    #         cylinder_radius,
+    #     ]
+    #     return sum(values) / len(values) if values else 0.0
 
     def calculate_geometric_center(
         self, pdb_lines: List[str]
@@ -336,20 +336,20 @@ class ScoringPockets:
             "Cylinder_Radius",
             "Hydrophobicity_Score",
             "Aromatic_Freq",
-            "Otyr_Freq",
+            #"Otyr_Freq",
             "Carbon_Freq",
             "Geom_Center_X",
             "Geom_Center_Y",
             "Geom_Center_Z",
             "Geom_Center",
-            "Score",
+            #"Score",
         ]
         # Write to CSV
         with open(output_file, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=",")
             writer.writeheader()
             # Sort cavities by descending score
-            for entry in sorted(scores, key=lambda item: item["score"], reverse=True):
+            for entry in scores:
                 writer.writerow(
                     {
                         "Protein_Code": entry["protein_code"],
@@ -367,7 +367,7 @@ class ScoringPockets:
                         "Cylinder_Radius": f"{entry['cylinder_radius']:.2f}",
                         "Hydrophobicity_Score": f"{entry['hydrophobicity_score']:.2f}",
                         "Aromatic_Freq": f"{entry['aromatic_freq']:.2f}",
-                        "Otyr_Freq": f"{entry['tyr_oh_freq']:.2f}",
+                        #"Otyr_Freq": f"{entry['tyr_oh_freq']:.2f}",
                         "Carbon_Freq": f"{entry['carbon_freq']:.2f}",
                         "Geom_Center_X": f"{entry['geom_center_x']:.3f}",
                         "Geom_Center_Y": f"{entry['geom_center_y']:.3f}",
@@ -375,7 +375,7 @@ class ScoringPockets:
                         "Geom_Center": entry[
                             "geom_center"
                         ],  # string formatada "x, y, z"
-                        "Score": f"{entry['score']:.2f}",
+                        #"Score": f"{entry['score']:.2f}",
                     }
                 )
         self.logger.info(f"Cavity scores saved to {output_file}")
@@ -435,20 +435,20 @@ class ScoringPockets:
                     f"{geom_center[0]:.3f}, {geom_center[1]:.3f}, {geom_center[2]:.3f}"
                 )
                 # Calculate other scores (e.g., hydrophobicity, polarity)
-                hydrophobicity_score, aromatic_freq, tyr_oh_freq, carbon_freq = (
+                hydrophobicity_score, aromatic_freq, carbon_freq = (
                     self.calculate_residue_descriptors(residue_file_path)
                 )
-                score = self.score_cavity(
-                    volume,
-                    surface,
-                    diameter,
-                    smallest_size,
-                    hydrophobicity_score,
-                    aromatic_freq,
-                    tyr_oh_freq,
-                    radius,
-                    cylinder_radius,
-                )
+                # score = self.score_cavity(
+                #     volume,
+                #     surface,
+                #     diameter,
+                #     smallest_size,
+                #     hydrophobicity_score,
+                #     aromatic_freq,
+                #     #tyr_oh_freq,
+                #     radius,
+                #     cylinder_radius,
+                # )
                 # Append the results to the scores list
                 scores.append(
                     {
@@ -467,13 +467,13 @@ class ScoringPockets:
                         "cylinder_radius": cylinder_radius,
                         "hydrophobicity_score": hydrophobicity_score,
                         "aromatic_freq": aromatic_freq,
-                        "tyr_oh_freq": tyr_oh_freq,
+                        #"tyr_oh_freq": tyr_oh_freq,
                         "carbon_freq": carbon_freq,
                         "geom_center_x": geom_center[0],
                         "geom_center_y": geom_center[1],
                         "geom_center_z": geom_center[2],
                         "geom_center": geom_center_str,
-                        "score": score,
+                        #"score": score,
                     }
                 )
         self.save_cavity_scores(cavity_path, scores)
