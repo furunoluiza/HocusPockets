@@ -5,10 +5,11 @@ HocusPockets Documentation
    :width: 400px
    :align: center
 
-HocusPockets is a tool designed to prioritize biological targets within the
-proteome of microorganisms based on the druggability of interaction sites and
-their chemical reactivity, utilizing descriptors such as Fukui indices to
-evaluate potential binding sites.
+HocusPockets is a computational tool for the automated identification, characterization, 
+and prioritization of protein binding cavities by integrating geometric, physicochemical, 
+and electronic-reactivity descriptors to assess their potential for ligand binding and 
+support the prioritization of promising biological targets.
+
 
 ----
 

@@ -28,7 +28,11 @@ After execution, the output directory will contain:
 
 ``cavities/``
     Subdirectories for each detection method (fpocket, ligsite, surfnet,
-    pocketfinder, fukui) with grid and residue PDB files.
+    pocketfinder) with grid and residue PDB files.
+
+``cavities/ranked_cavities/``
+    The five most promising cavities, ranked according to their
+    Fukushima sum.
 
 ``reactivity/``
     MOPAC and PRIMoRDiA outputs, including Fukui and Fukushima descriptor
@@ -41,13 +45,33 @@ After execution, the output directory will contain:
 ``<protein>_cavity_overlap.csv``
     Pairwise residue overlap between cavities from different methods.
 
-Step 4: Interpret scores
+Step 4: Cavity characterization
 -------------------------
 
-Cavities are ranked by a composite ``Score`` that blends:
+HocusPockets characterizes each detected cavity using a combination of
+geometric, physicochemical, and electronic-reactivity descriptors.
 
-* Geometric properties (volume, surface, diameter)
-* Hydrophobicity and aromatic residue frequency
-* Quantum reactivity (Fukui and Fukushima indices)
+* Geometric descriptors: volume, surface area, diameter, radius,
+    smallest dimension, and cylinder radius.
+* Physicochemical descriptors: hydrophobicity and aromatic residue
+    frequency, including the frequency of tyrosine residues.
+* Electronic-reactivity descriptors: Fukui and Fukushima descriptors
+    calculated for residues associated with each cavity.
 
-Higher scores indicate more promising druggable cavities.
+These descriptors provide a multidimensional characterization of the
+structural and chemical properties of each predicted binding cavity.
+
+Step 5: Cavity prioritization
+-------------------------
+Cavities are prioritized according to their **Fukushima Sum**, which
+represents the cumulative Fukushima reactivity descriptor associated
+with the residues comprising each cavity.
+
+The five cavities with the highest Fukushima sums are selected as the
+most promising cavities and stored in:
+
+``cavities/ranked_cavities/``
+
+A higher Fukushima sum indicates greater cumulative electronic
+reactivity within the cavity and is used as the primary criterion for
+cavity prioritization.
