@@ -21,6 +21,7 @@ import csv
 import logging
 import subprocess
 import shutil
+import glob
 from typing import Dict, List
 import numpy as np
 from scipy.spatial import ConvexHull
@@ -59,6 +60,7 @@ class CavityFinder:
         distance: float,
         similarity: float,
         fpocket_score: float,
+        toggle_image: bool = False
     ) -> None:
         """
         Initializes the CavityFinder object.
@@ -90,6 +92,7 @@ class CavityFinder:
         self.distance = distance
         self.similarity = similarity
         self.fpocket_score = fpocket_score
+        self.toggle_image = toggle_image
 
     @staticmethod
     def extract_residues_from_pdb(cavity_file):
@@ -612,6 +615,11 @@ class CavityFinder:
                     results_fukushima_no_norm,
                     results_fukushima_sum_norm,
                 )
+                self.rank_cavities(program_dir)
+                self.create_ranked_output(
+                    program_dir, 
+                    input_pdb_file
+                )
             except Exception as e:
                 self.logger.warning(
                     f"[WARNING] Error processing: {protein_output_dir}: {e}"
@@ -692,6 +700,11 @@ class CavityFinder:
             results_fukushima_no_norm,
             results_fukushima_sum_norm,
         )
+        self.rank_cavities(cavities_output_dir)
+        self.create_ranked_output(
+            cavities_output_dir, 
+            self.input_path
+        )
 
     def find_cavities(self) -> None:
         """
@@ -722,6 +735,329 @@ class CavityFinder:
         else:
             self.find_cavities_in_file(protein_output_dir)
 
+    def rank_cavities(self, cavity_path: str) -> None:
+        """
+        Add the cavity prioritization rank to the cavity score CSV file.
+
+        Parameters
+        ----------
+        cavity_path : str
+            Path to the directory containing the cavity data.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This method reads the existing cavity score CSV file, sorts the
+        cavities in descending order according to their Fukushima_Sum
+        scores, and adds a Rank column. The highest-scoring cavity
+        receives rank 1.
+        """
+
+        # Extract the protein name from the parent directory of the cavity path
+        protein_name = os.path.basename(os.path.dirname(cavity_path))
+
+        # Construct the full path to the cavity score CSV file
+        csv_file = os.path.join(
+            cavity_path,
+            f"{protein_name}_cavity_scores.csv",
+        )
+
+        # Read the existing CSV file
+        with open(csv_file, "r", newline="", encoding="utf-8") as infile:
+            reader = csv.DictReader(infile)
+
+            # Ensure that the CSV file contains a header
+            if reader.fieldnames is None:
+                self.logger.warning(f"The CSV file has no header: {csv_file}")
+                return
+
+            # Ensure that the score column required for ranking is present
+            if "Fukushima_Sum" not in reader.fieldnames:
+                self.logger.warning(f"Column 'Fukushima_Sum' was not found in the CSV file: {csv_file}")
+                return
+
+            # Store the original column names before closing the file
+            fieldnames = list(reader.fieldnames)
+
+            # Read all CSV rows while the file is still open
+            rows = list(reader)
+
+        # Stop if the CSV file does not contain any cavity records
+        if not rows:
+            self.logger.warning(f"No cavity records found in the CSV file: {csv_file}")
+            return
+
+        # Sort cavities by Fukushima_Sum in descending order
+        rows.sort(
+            key=lambda row: float(row["Fukushima_Sum"]),
+            reverse=True,
+        )
+
+        # Assign the prioritization rank to each cavity
+        for rank, row in enumerate(rows, start=1):
+            row["Rank"] = rank
+
+        # Ensure that Rank is always the second column
+        if "Rank" in fieldnames:
+            fieldnames.remove("Rank")
+        
+        fieldnames.insert(1, "Rank")
+
+        # Write the sorted cavities and their ranks back to the CSV file
+        with open(csv_file, "w", newline="", encoding="utf-8") as outfile:
+            writer = csv.DictWriter(
+                outfile,
+                fieldnames=fieldnames,
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+
+    def create_ranked_output(
+        self,
+        cavity_path: str,
+        input_pdb_file: str
+    ) -> None:
+        """
+        Create a ranked output directory for the identified cavities.
+
+        Parameters
+        ----------
+        cavity_path : str
+            Path to the directory containing the cavity data.
+        input_pdb_file : str
+            Path to the input PDB file corresponding to the protein structure.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This method reads the cavity score CSV file and creates a directory
+        structure in which each cavity is stored in a subdirectory named
+        according to its prioritization rank.
+        """
+
+        # Extract the protein name from the parent directory of the cavity path
+        protein_name = os.path.basename(os.path.dirname(os.path.normpath(cavity_path)))
+
+        # Construct the full path to the cavity score CSV file
+        csv_file = os.path.join(cavity_path, f"{protein_name}_cavity_scores.csv")
+
+        # Check whether the cavity score CSV file exists
+        if not os.path.isfile(csv_file):
+            self.logger.error("Cavity score CSV file not found: %s", csv_file)
+            return
+
+        try:
+            # Read the existing cavity score CSV file
+            with open(csv_file, "r", newline="", encoding="utf-8") as infile:
+                reader = csv.DictReader(infile)
+
+                # Ensure that the CSV file contains a header
+                if reader.fieldnames is None:
+                    self.logger.warning("The CSV file has no header: %s", csv_file)
+                    return
+
+                # Define the columns required by this method
+                required_columns = {"Rank", "Residue_Path"}
+
+                # Identify any required columns missing from the CSV file
+                missing_columns = required_columns.difference(reader.fieldnames)
+
+                # Stop gracefully if one or more required columns are missing
+                if missing_columns:
+                    self.logger.warning(
+                        "Required column(s) missing from '%s': %s",
+                        csv_file,
+                        ", ".join(sorted(missing_columns)),
+                    )
+                    return
+
+                # Read all cavity records while the CSV file is still open
+                rows = list(reader)
+
+        except (OSError, csv.Error) as error:
+            self.logger.error(
+                "Could not read the cavity score CSV file '%s': %s",
+                csv_file,
+                error,
+            )
+            return
+
+        # Stop gracefully if the CSV file contains no cavity records
+        if not rows:
+            self.logger.warning("No cavity records were found in: %s", csv_file)
+            return
+
+        # Construct the path to the ranked output directory
+        ranked_output_dir = os.path.join(cavity_path, "ranked_cavities")
+
+        try:
+            # Create the ranked output directory if it does not already exist
+            os.makedirs(ranked_output_dir, exist_ok=True)
+
+        except OSError as error:
+            self.logger.error(
+                "Could not create ranked output directory '%s': %s",
+                ranked_output_dir,
+                error,
+            )
+            return
+
+        # Convert the input protein path to an absolute path
+        protein_path = os.path.abspath(input_pdb_file)
+
+        # Check the protein file only when visualization scripts are requested
+        if self.toggle_image and not os.path.isfile(protein_path):
+            self.logger.warning("Input protein PDB file not found: %s", protein_path)
+
+        # Process each cavity record independently
+        for row_number, row in enumerate(rows, start=1):
+            try:
+                # Convert the rank value from the CSV file to an integer
+                rank = int(row["Rank"])
+
+            except (TypeError, ValueError):
+                self.logger.warning(
+                    "Invalid rank value in CSV row %d: %r",
+                    row_number,
+                    row.get("Rank"),
+                )
+                continue
+
+            # Retrieve and normalize the original cavity directory path
+            cav_path = row["Residue_Path"]
+
+            # Construct the directory name for the current ranked cavity
+            rank_dir = os.path.join(
+                ranked_output_dir,
+                f"Rank_{rank}_{os.path.basename(cav_path).split('.pdb')[0]}",
+            )
+
+            try:
+                # Create the directory for the current ranked cavity
+                os.makedirs(rank_dir, exist_ok=True)
+
+                # Copy the cavity residue file to the ranked directory
+                shutil.copy2(
+                    cav_path, 
+                    os.path.join(rank_dir, f"Rank_{rank}_{os.path.basename(cav_path)}")
+                )
+
+            except OSError as error:
+                self.logger.error(
+                    "Could not copy files for cavity rank %d: %s",
+                    rank,
+                    error,
+                )
+                continue
+
+            # Create a ChimeraX visualization script when requested
+            if self.toggle_image:
+
+                # Create a color dict
+                clrs = {
+                    1: "#1f77b4", 
+                    2: "#e9331b", 
+                    3: "#2ca02c", 
+                    4: "#ddc912", 
+                    5: "#9467bd"
+                    }
+
+                # Skip script creation if the input protein file is unavailable
+                if not os.path.isfile(protein_path):
+                    self.logger.warning(
+                        "Visualization script was not created for rank %d "
+                        "because the protein file is unavailable.",
+                        rank,
+                    )
+                    continue
+
+                # Construct the output path for the ChimeraX script
+                image_gen_file = os.path.join(
+                    rank_dir,
+                    f"Rank_{rank}_{os.path.basename(cav_path).split('.pdb')[0]}.cxc",
+                )
+
+                # Define the ChimeraX visualization commands
+                script_lines = [
+                    f'open "{protein_path}"\n',
+                    f'open "{cav_path}"\n',
+                    "set bgColor white\n",
+                    "material dull\n",
+                    "lighting full\n",
+                    "graphics silhouettes true\n",
+                    "lighting depthCue false\n",
+                    "camera ortho\n",
+                    "color #1 light gray\n",
+                    "hide atoms\n",
+                    "hide cartoon\n",
+                    "hide surface\n",
+                    "show #1 cartoon\n",
+                    "show #2 surface\n",
+                    "transparency 40 s\n"
+                ]
+
+                if rank <= 5:
+                    script_lines.append(f"color #2 {clrs[rank]}")
+                else:
+                    script_lines.append("color #2 light gray")
+
+                try:
+                    # Write the ChimeraX commands to the visualization script
+                    with open(image_gen_file, "w", encoding="utf-8") as script_file:
+                        script_file.writelines(script_lines)
+
+                except OSError as error:
+                    self.logger.error(
+                        "Could not create the visualization script "
+                        "for cavity rank %d: %s",
+                        rank,
+                        error,
+                    )
+                    continue
+
+        self.logger.info(
+            "Ranked cavity output successfully created in: %s",
+            ranked_output_dir
+        )
+
+        # Create a top_5 cavity image script
+        if self.toggle_image:
+            top_5_script_file = os.path.join(
+                ranked_output_dir, f"{protein_name}_top_5_cavities.cxc"
+            )
+            top_5_script_lines = [
+                f'open "{protein_path}"\n',
+                "set bgColor white\n",
+                "material dull\n",
+                "lighting full\n",
+                "graphics silhouettes true\n",
+                "lighting depthCue false\n",
+                "camera ortho\n",
+                "color #1 light gray\n",
+            ]
+
+            # Get the residue path by the rank on the CSV file
+            for rank, row in enumerate(rows, start=1):
+                if os.path.isfile(row["Residue_Path"]) and rank <= 5:
+                    top_5_script_lines.append(f'open "{row["Residue_Path"]}"\n')
+                    top_5_script_lines.append(f"color #{rank + 1} {clrs[rank]}\n")
+                    top_5_script_lines.append("hide atoms\n")
+                    top_5_script_lines.append(f"show #{rank + 1} surface\n")
+                    top_5_script_lines.append("transparency 40 s\n")
+
+            try:
+                with open(top_5_script_file, "w", encoding="utf-8") as script_file:
+                    script_file.writelines(top_5_script_lines)
+            except OSError as error:
+                self.logger.error(
+                    "Could not create the top 5 visualization script: %s", error
+                )
 
 class ConCavityFinder(CavityFinder):
     def __init__(
