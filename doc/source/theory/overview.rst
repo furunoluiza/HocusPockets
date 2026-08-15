@@ -1,7 +1,6 @@
 Theoretical Overview
 
-HocusPockets integrates three complementary approaches to identify and
-rank druggable cavities in protein structures.
+HocusPockets integrates three complementary approaches to identify and rank druggable cavities in protein structures.
 
 1. Geometric cavity detection
 -----------------------------
