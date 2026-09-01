@@ -7,10 +7,11 @@ This module provides functionality to install external software dependencies req
 # Imports
 ###############################################################################
 import logging
+import os
 import subprocess
+import urllib.error
 import urllib.request
 from pathlib import Path
-from hocuspockets.constants import MOPAC_BINARY
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,9 @@ class InstallExternalSoftware:
                     "conda",
                     "install",
                     "-y",
-                    MOPAC_BINARY,
+                    "-c",
+                    "conda-forge",
+                    "mopac",
                 ],
                 check=True,
             )
@@ -100,7 +103,7 @@ class InstallExternalSoftware:
                 "https://compbio.cs.princeton.edu/concavity/concavity_distr.tar.gz",
                 f"{self.path}/concavity_distr.tar.gz",
             )
-        except Exception as e:
+        except (OSError, urllib.error.URLError) as e:
             logger.error("Failed to download ConCavity: %s", e)
         try:
             subprocess.run(
@@ -115,32 +118,119 @@ class InstallExternalSoftware:
                 f.write(
                     f"\nexport PATH={self.path}/concavity_distr/bin/x86_64/:$PATH\n"
                 )
-        except Exception as e:
+        except OSError as e:
             logger.error("Failed to update .bashrc for ConCavity: %s", e)
 
     def __install_primordia(self) -> None:
         """
-        Install Primordia software.
+        Build and install PRIMoRDiA 1.50 from its CMake project.
+
+        The executable is installed below ``self.path`` so this installer does
+        not require root privileges. The install directory is added to both
+        the current process and the user's bash startup file.
         """
-        try:
-            urllib.request.urlretrieve(
-                "https://github.com/igorChem/PRIMoRDiA1.0v/archive/master.zip",
-                f"{self.path}/primordia.zip",
-            )
-        except Exception as e:
-            logger.error("Failed to download PRIMoRDiA: %s", e)
-        try:
-            subprocess.run(
-                ["unzip", f"{self.path}/primordia.zip", "-d", self.path], check=True
-            )
-        except subprocess.CalledProcessError as e:
-            logger.error("Failed to install PRIMoRDiA: %s", e)
+        source_dir = Path(self.path) / "PRIMoRDiA_1.50v"
+        build_dir = source_dir / "build"
+        install_dir = source_dir / "install"
+        executable = install_dir / "bin" / "PRIMoRDiA_1.50v"
 
         try:
-            with open(f"{self.path}/.bashrc", "a") as f:
-                f.write(f"\nexport PATH={self.path}/PRIMoRDiA1.0v-master/:$PATH\n")
-        except Exception as e:
-            logger.error("Failed to update .bashrc for PRIMoRDiA: %s", e)
+            source_dir.parent.mkdir(parents=True, exist_ok=True)
+            if not source_dir.exists():
+                subprocess.run(
+                    [
+                        "git",
+                        "clone",
+                        "--depth",
+                        "1",
+                        "https://github.com/bardenChem/PRIMoRDiA_1.50v.git",
+                        str(source_dir),
+                    ],
+                    check=True,
+                )
+
+            subprocess.run(
+                [
+                    "conda",
+                    "run",
+                    "-n",
+                    "HocusPockets",
+                    "conda",
+                    "install",
+                    "-y",
+                    "-c",
+                    "conda-forge",
+                    "cmake",
+                    "eigen=3.4",
+                    "boost-cpp",
+                    "zlib",
+                    "make",
+                ],
+                check=True,
+            )
+            conda_prefix = subprocess.run(
+                ["conda", "run", "-n", "HocusPockets", "printenv", "CONDA_PREFIX"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            subprocess.run(
+                [
+                    "conda",
+                    "run",
+                    "-n",
+                    "HocusPockets",
+                    "cmake",
+                    "-S",
+                    str(source_dir),
+                    "-B",
+                    str(build_dir),
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    f"-DCMAKE_INSTALL_PREFIX={install_dir}",
+                    f"-DCMAKE_INSTALL_RPATH={conda_prefix}/lib",
+                ],
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "conda",
+                    "run",
+                    "-n",
+                    "HocusPockets",
+                    "cmake",
+                    "--build",
+                    str(build_dir),
+                    "--parallel",
+                ],
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "conda",
+                    "run",
+                    "-n",
+                    "HocusPockets",
+                    "cmake",
+                    "--install",
+                    str(build_dir),
+                ],
+                check=True,
+            )
+            if not executable.is_file():
+                raise FileNotFoundError(f"PRIMoRDiA executable not found: {executable}")
+
+            executable.chmod(executable.stat().st_mode | 0o111)
+            bin_dir = str(executable.parent)
+            os.environ["PATH"] = f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+            bashrc = Path(self.path) / ".bashrc"
+            path_line = f"export PATH={bin_dir}:$PATH"
+            existing = bashrc.read_text() if bashrc.exists() else ""
+            if path_line not in existing:
+                with bashrc.open("a") as f:
+                    f.write(f"\n{path_line}\n")
+            logger.info("PRIMoRDiA 1.50 installed at %s", executable)
+        except (OSError, subprocess.CalledProcessError) as e:
+            logger.error("Failed to install PRIMoRDiA 1.50: %s", e)
 
 
 def install_external_software() -> None:
@@ -150,5 +240,5 @@ def install_external_software() -> None:
     try:
         installer = InstallExternalSoftware()
         installer.install()
-    except Exception as e:
+    except (OSError, subprocess.CalledProcessError) as e:
         logger.error("Installation of external software failed: %s", e)

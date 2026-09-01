@@ -36,6 +36,16 @@ following command:
 
     hocuspockets-install
 
+The automatic installer builds PRIMoRDiA 1.50 with CMake and installs it under
+your home directory. PRIMoRDiA 1.50 requires CMake, a C++17 compiler with
+OpenMP, Eigen, Boost.Iostreams, zlib, and Make. On Ubuntu/Debian, the native
+build dependencies can be installed with:
+
+.. code-block:: bash
+
+    sudo apt update
+    sudo apt install build-essential cmake libeigen3-dev libboost-iostreams-dev zlib1g-dev
+
 Open a new terminal and activate the conda environment, or source the
 changes in the current terminal:
 

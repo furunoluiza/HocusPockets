@@ -26,8 +26,8 @@ HYDROPHOBICITY_SCALE: Dict[str, float] = {
     "UNK": -0.17,
 }
 
-MOPAC_BINARY: str = "/opt/mopac/MOPAC2016.exe"
-PRIMORDIA_BINARY: str = "PRIMoRDiA_1.25v_LINUX64"
+MOPAC_BINARY: str = "mopac"
+PRIMORDIA_BINARY: str = "PRIMoRDiA_1.50v"
 GRID_METHODS: Tuple[str, ...] = ("pocketfinder", "ligsite", "surfnet")
 CAVITY_PROGRAMS: Tuple[str, ...] = ("fpocket", "ligsite", "surfnet", "pocketfinder")
 AROMATIC_RESIDUES: set = {"PHE", "TYR", "HIS", "TRP"}

@@ -226,7 +226,7 @@ def check_primordia_installed(logger: logging.Logger) -> None:
 
 def check_mopac_installed(logger: logging.Logger) -> None:
     """
-    Checks whether 'MOPAC' is installed and accessible from the expected path.
+    Checks whether 'MOPAC' is installed and accessible through PATH.
 
     Parameters
     ----------
