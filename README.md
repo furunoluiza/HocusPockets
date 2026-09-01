@@ -23,7 +23,7 @@ Before using HocusPockets, ensure the following packages and external programs a
 
 > * [Fpocket](https://github.com/Discngine/fpocket/tree/master)  
 > * [ConCavity](https://compbio.cs.princeton.edu/concavity/)  
-> * [PRIMoRDiA](https://github.com/igorChem/PRIMoRDiA1.0v)  
+> * [PRIMoRDiA 1.50](https://github.com/bardenChem/PRIMoRDiA_1.50v)
 > * [MOPAC](https://openmopac.net/)
     
 ## Usage
