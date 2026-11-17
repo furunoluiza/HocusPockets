@@ -1,4 +1,5 @@
 import pytest
+
 from hocuspockets.initialize import args_parse
 
 

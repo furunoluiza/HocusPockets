@@ -1,4 +1,5 @@
 import pytest
+
 from hocuspockets.scoring_pockets import ScoringPockets
 
 

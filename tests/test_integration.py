@@ -1,5 +1,7 @@
 import os
+
 import pytest
+
 from hocuspockets import pdb_utils
 
 PDBBIND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database_pdbbind")
