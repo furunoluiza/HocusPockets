@@ -15,16 +15,17 @@ Main functionalities:
 
 This module is typically used as part of the HocusPockets workflow.
 """
+from __future__ import annotations
 
-import os
-import logging
-import subprocess
 import gzip
+import logging
+import os
 import shutil
-from typing import Optional
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
-from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS, MOPAC_BINARY
+
+from hocuspockets.constants import DEFAULT_MOPAC_FLAGS, MOPAC_BINARY, PRIMORDIA_BINARY
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,7 @@ class Reactivity:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 timeout=3600,
+                check=False,
             )
             if result.returncode != 0:
                 error_msg = (
@@ -160,7 +162,7 @@ class Reactivity:
         )
         return primordia_file
 
-    def run_mopac(self, mopac_file: str, reactivity_dir: str) -> Optional[str]:
+    def run_mopac(self, mopac_file: str, reactivity_dir: str) -> str | None:
         """
         Runs MOPAC on the given .mop file and saves the output in the reactivity directory.
 
@@ -257,7 +259,7 @@ class Reactivity:
         )
         return mopac_file
 
-    def compress_file(self, file_path: str) -> Optional[str]:
+    def compress_file(self, file_path: str) -> str | None:
         """
         Compress a file with gzip and remove the original.
         """
@@ -265,15 +267,14 @@ class Reactivity:
             logger.debug("compress_file skipped: %s (not found)", file_path)
             return None
         gz_path = file_path + ".gz"
-        with open(file_path, "rb") as f_in:
-            with gzip.open(gz_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
+        with open(file_path, "rb") as f_in, gzip.open(gz_path, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
         os.remove(file_path)
         logger.debug("Compressed %s -> %s", file_path, gz_path)
         return gz_path
 
     def process_directory(
-        self, n_jobs: Optional[int] = None, parallel: bool = False
+        self, n_jobs: int | None = None, parallel: bool = False
     ) -> None:
         """
         Processes all .pdb protein files in the input directory and applies
@@ -332,8 +333,8 @@ class Reactivity:
                     gz_path = self.compress_file(output_aux)
                     self.logger.info(f"Compressed AUX file -> {gz_path}")
                 self.logger.info(f"Finished processing {os.path.basename(input_file)}")
-            except Exception as e:
-                self.logger.error(f"Failed to process {input_file}: {e}")
+            except Exception:
+                self.logger.exception("Failed to process %s", input_file)
 
         if parallel:
             if n_jobs is None or n_jobs < 1:
@@ -344,9 +345,9 @@ class Reactivity:
                 for future in as_completed(futures):
                     try:
                         future.result()
-                    except Exception as e:
+                    except Exception:
                         pdb = futures[future]
-                        self.logger.error(f"Exception in thread for {pdb}: {e}")
+                        self.logger.exception("Exception in thread for %s", pdb)
         else:
             self.logger.info("Running sequentially.")
             for pdb in pdb_files:
@@ -396,7 +397,7 @@ class Reactivity:
         )
 
     def find_reactivity(
-        self, parallel: bool = False, n_jobs: Optional[int] = None
+        self, parallel: bool = False, n_jobs: int | None = None
     ) -> None:
         """
         Main method to find cavities in a file or a directory.

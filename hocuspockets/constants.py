@@ -1,6 +1,6 @@
-from typing import Dict, Tuple
+from __future__ import annotations
 
-HYDROPHOBICITY_SCALE: Dict[str, float] = {
+HYDROPHOBICITY_SCALE: dict[str, float] = {
     "ALA": -0.17,
     "ARG": -0.81,
     "ASN": -0.42,
@@ -28,7 +28,7 @@ HYDROPHOBICITY_SCALE: Dict[str, float] = {
 
 MOPAC_BINARY: str = "mopac"
 PRIMORDIA_BINARY: str = "PRIMoRDiA_1.50v"
-GRID_METHODS: Tuple[str, ...] = ("pocketfinder", "ligsite", "surfnet")
-CAVITY_PROGRAMS: Tuple[str, ...] = ("fpocket", "ligsite", "surfnet", "pocketfinder")
+GRID_METHODS: tuple[str, ...] = ("pocketfinder", "ligsite", "surfnet")
+CAVITY_PROGRAMS: tuple[str, ...] = ("fpocket", "ligsite", "surfnet", "pocketfinder")
 AROMATIC_RESIDUES: set = {"PHE", "TYR", "HIS", "TRP"}
 DEFAULT_MOPAC_FLAGS: str = "PM7 1SCF ALLVECS VECTOR AUX LARGE MOZYME eps=78.4"

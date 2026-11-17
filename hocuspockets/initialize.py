@@ -14,13 +14,14 @@ This module ensures the environment is correctly configured before the main
 pocket analysis routines are executed.
 """
 
-import os
-import sys
-import logging
 import argparse
-import textwrap as tw
+import logging
+import os
 import subprocess
-from hocuspockets.constants import PRIMORDIA_BINARY, DEFAULT_MOPAC_FLAGS, MOPAC_BINARY
+import sys
+import textwrap as tw
+
+from hocuspockets.constants import DEFAULT_MOPAC_FLAGS, MOPAC_BINARY, PRIMORDIA_BINARY
 
 # License
 ###############################################################################
@@ -161,8 +162,7 @@ def check_fpocket_installed(logger: logging.Logger) -> None:
         subprocess.run(
             ["fpocket", "--help"],
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
         logger.info("'fpocket' is installed and accessible.")
     except subprocess.CalledProcessError:
@@ -184,7 +184,7 @@ def check_concavity_installed(logger: logging.Logger) -> None:
     """
     try:
         subprocess.run(
-            ["concavity"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["concavity"], check=True, capture_output=True
         )
         logger.info("'ConCavity' is installed and accessible.")
     except subprocess.CalledProcessError:
@@ -208,7 +208,7 @@ def check_primordia_installed(logger: logging.Logger) -> None:
     """
     try:
         result = subprocess.run(
-            [PRIMORDIA_BINARY], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            [PRIMORDIA_BINARY], capture_output=True, check=False
         )
         if result.returncode == 0:
             logger.info("'PRIMoRDIA' is installed and accessible.")
@@ -238,8 +238,7 @@ def check_mopac_installed(logger: logging.Logger) -> None:
             [MOPAC_BINARY],
             input=b"\n",
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
         logger.info("'MOPAC' is installed and accessible.")
     except FileNotFoundError:
@@ -263,15 +262,15 @@ def verify_input(args: argparse.Namespace, logger: logging.Logger) -> None:
     check_primordia_installed(logger)
     check_mopac_installed(logger)
     if os.path.isfile(args.input_path):
-        if not args.input_path.endswith((".pdb")):
+        if not args.input_path.endswith(".pdb"):
             logger.error(
                 f'The input file "{args.input_path}" must be a .pdb extension.'
             )
             sys.exit(1)
     elif os.path.isdir(args.input_path):
         files = os.listdir(args.input_path)
-        pdb_files = [f for f in files if f.endswith((".pdb"))]
-        other_files = [f for f in files if not f.endswith((".pdb"))]
+        pdb_files = [f for f in files if f.endswith(".pdb")]
+        other_files = [f for f in files if not f.endswith(".pdb")]
         if len(pdb_files) == 0:
             logger.error(
                 f'The directory "{args.input_path}" does not contain any .pdb files.'
@@ -284,9 +283,8 @@ def verify_input(args: argparse.Namespace, logger: logging.Logger) -> None:
             f'The input path "{args.input_path}" is neither a file nor a directory.'
         )
         sys.exit(1)
-    if args.output:
-        if not os.path.isdir(args.output):
-            logger.error(
-                f'The output path "{args.output}" does not exist or is not a directory.'
-            )
-            sys.exit(1)
+    if args.output and not os.path.isdir(args.output):
+        logger.error(
+            f'The output path "{args.output}" does not exist or is not a directory.'
+        )
+        sys.exit(1)

@@ -1,6 +1,6 @@
-from typing import Dict
+from __future__ import annotations
 
-clrs: Dict[str, str] = {
+clrs: dict[str, str] = {
     "r": "\033[1;91m",
     "g": "\033[1;92m",
     "b": "\033[1;94m",

@@ -11,8 +11,10 @@ utilities reduces code duplication across the cavity analysis modules.
 
 # Imports
 ###############################################################################
+from __future__ import annotations
+
 import logging
-from typing import Dict, List, Optional, Set, Tuple
+
 import numpy as np
 import numpy.typing as npt
 
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
     E-mail address: luizafuruno@ufrj.br
 """
 
-PDB_COLUMNS: Dict[str, Tuple[int, int]] = {
+PDB_COLUMNS: dict[str, tuple[int, int]] = {
     "record": (0, 6),
     "atom_serial": (6, 11),
     "atom_name": (12, 16),
@@ -50,7 +52,7 @@ PDB_COLUMNS: Dict[str, Tuple[int, int]] = {
 }
 
 
-def parse_pdb_lines(file_path: str, record_type: str = "ATOM") -> List[str]:
+def parse_pdb_lines(file_path: str, record_type: str = "ATOM") -> list[str]:
     """
     Reads a PDB file and returns lines matching the specified record type.
 
@@ -66,7 +68,7 @@ def parse_pdb_lines(file_path: str, record_type: str = "ATOM") -> List[str]:
         list
             List of lines from the PDB file that start with the given record type.
     """
-    lines: List[str] = []
+    lines: list[str] = []
     try:
         with open(file_path, "r") as f:
             for line in f:
@@ -145,7 +147,7 @@ def extract_atom_key(line: str) -> str:
     return f"{chain_id}:{res_seq}{res_name}:{atom_name}"
 
 
-def extract_residue_ids(file_path: str) -> Set[str]:
+def extract_residue_ids(file_path: str) -> set[str]:
     """
     Extracts all unique residue identifiers from a PDB file.
 
@@ -159,13 +161,13 @@ def extract_residue_ids(file_path: str) -> Set[str]:
         set
             Set of residue IDs in "chain:seqResName" format.
     """
-    residues: Set[str] = set()
+    residues: set[str] = set()
     for line in parse_pdb_lines(file_path):
         residues.add(extract_residue_id(line))
     return residues
 
 
-def calculate_residue_centers(lines: List[str]) -> Dict[str, npt.NDArray[np.float64]]:
+def calculate_residue_centers(lines: list[str]) -> dict[str, npt.NDArray[np.float64]]:
     """
     Calculates the geometric center (centroid) of each residue from ATOM lines.
 
@@ -179,7 +181,7 @@ def calculate_residue_centers(lines: List[str]) -> Dict[str, npt.NDArray[np.floa
         dict
             Residue ID (str) -> centroid coordinates (numpy.ndarray of shape (3,)).
     """
-    residues: Dict[str, List[npt.NDArray[np.float64]]] = {}
+    residues: dict[str, list[npt.NDArray[np.float64]]] = {}
     for line in lines:
         if line.startswith("ATOM"):
             residue_id = extract_residue_id(line)
@@ -193,7 +195,7 @@ def calculate_residue_centers(lines: List[str]) -> Dict[str, npt.NDArray[np.floa
     }
 
 
-def extract_atom_coordinates(lines: List[str]) -> npt.NDArray[np.float64]:
+def extract_atom_coordinates(lines: list[str]) -> npt.NDArray[np.float64]:
     """
     Extracts all (x, y, z) coordinates from ATOM and HETATM lines.
 
@@ -208,10 +210,10 @@ def extract_atom_coordinates(lines: List[str]) -> npt.NDArray[np.float64]:
             Array of shape (N, 3) with atomic coordinates,
             or an empty array if no valid coordinates are found.
     """
-    coords: List[List[float]] = []
+    coords: list[list[float]] = []
     skipped = 0
     for line in lines:
-        if line.startswith("ATOM") or line.startswith("HETATM"):
+        if line.startswith(("ATOM", "HETATM")):
             try:
                 c = extract_coordinates(line).tolist()
                 coords.append(c)
@@ -227,7 +229,7 @@ def extract_atom_coordinates(lines: List[str]) -> npt.NDArray[np.float64]:
     return np.array(coords)
 
 
-def calculate_geometric_center(lines: List[str]) -> npt.NDArray[np.float64]:
+def calculate_geometric_center(lines: list[str]) -> npt.NDArray[np.float64]:
     """
     Calculates the geometric center (centroid) from a set of PDB atomic lines.
 
@@ -248,7 +250,7 @@ def calculate_geometric_center(lines: List[str]) -> npt.NDArray[np.float64]:
     return np.mean(coords, axis=0)
 
 
-def build_residue_index_map(pdb_path: str) -> Dict[int, str]:
+def build_residue_index_map(pdb_path: str) -> dict[int, str]:
     """
     Builds a sequential index map for residues in a PDB file.
 
@@ -263,8 +265,8 @@ def build_residue_index_map(pdb_path: str) -> Dict[int, str]:
             1-based sequential index (int) -> residue ID (str)
             in "chain:seqResName" format.
     """
-    residue_map: Dict[int, str] = {}
-    seen: Set[str] = set()
+    residue_map: dict[int, str] = {}
+    seen: set[str] = set()
     index = 1
     for line in parse_pdb_lines(pdb_path):
         res_id = extract_residue_id(line)
@@ -276,8 +278,8 @@ def build_residue_index_map(pdb_path: str) -> Dict[int, str]:
 
 
 def parse_bfactor_values(
-    pdb_file: str, residue_map: Dict[int, str]
-) -> Dict[str, float]:
+    pdb_file: str, residue_map: dict[int, str]
+) -> dict[str, float]:
     """
     Parses B-factor values from a PDB file, mapping atoms to their B-factors.
 
@@ -294,44 +296,42 @@ def parse_bfactor_values(
         dict
             Atom key (str) in "chain:seqResName:atomName" format -> B-factor value (float).
     """
-    atom_values: Dict[str, float] = {}
-    current_res_number: Optional[int] = None
-    res_id: Optional[str] = None
+    atom_values: dict[str, float] = {}
+    current_res_number: int | None = None
+    res_id: str | None = None
     seq_index = 0
     skipped = 0
     mapped = 0
 
     try:
-        fh = open(pdb_file, "r")
+        with open(pdb_file, "r") as fh:
+            for line in fh:
+                if not line.startswith("ATOM"):
+                    continue
+
+                try:
+                    res_number = int(line[22:26].strip())
+                    atom_name = line[12:16].strip()
+                    bfactor = float(line[60:66].strip())
+                except ValueError:
+                    skipped += 1
+                    continue
+
+                if res_number != current_res_number:
+                    seq_index += 1
+                    res_id = residue_map.get(seq_index)
+                    current_res_number = res_number
+
+                if not res_id:
+                    skipped += 1
+                    continue
+
+                atom_key = f"{res_id}:{atom_name}"
+                atom_values[atom_key] = bfactor
+                mapped += 1
     except FileNotFoundError:
         logger.warning("B-factor PDB file not found: %s", pdb_file)
         return atom_values
-
-    with fh:
-        for line in fh:
-            if not line.startswith("ATOM"):
-                continue
-
-            try:
-                res_number = int(line[22:26].strip())
-                atom_name = line[12:16].strip()
-                bfactor = float(line[60:66].strip())
-            except ValueError:
-                skipped += 1
-                continue
-
-            if res_number != current_res_number:
-                seq_index += 1
-                res_id = residue_map.get(seq_index)
-                current_res_number = res_number
-
-            if not res_id:
-                skipped += 1
-                continue
-
-            atom_key = f"{res_id}:{atom_name}"
-            atom_values[atom_key] = bfactor
-            mapped += 1
 
     logger.debug(
         "Parsed %d B-factor values from %s (%d lines skipped)",

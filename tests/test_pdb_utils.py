@@ -1,8 +1,10 @@
-import tempfile
 import os
+import tempfile
+
 import pytest
-from hocuspockets import pdb_utils
 from conftest import SAMPLE_PDB_LINES
+
+from hocuspockets import pdb_utils
 
 
 @pytest.fixture

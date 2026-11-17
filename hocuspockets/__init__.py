@@ -12,15 +12,15 @@ Carlos Chagas Filho Av. 373 - Rio de Janeiro - RJ - Brazil
 Health Sciences Centre - block G1-19
 E-mail address: luizafuruno@ufrj.br
 """
+from __future__ import annotations
 
 import logging
 import os
 import sys
-from typing import Optional
 
 
 def setup_logging(
-    output_path: Optional[str] = None, verbose: bool = False
+    output_path: str | None = None, verbose: bool = False
 ) -> logging.Logger:
     logger = logging.getLogger("hocuspockets")
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)

@@ -18,16 +18,19 @@ ligand-binding pockets in protein structures.
 
 Note: The scoring weights and normalization strategy are still subject to validation.
 """
+from __future__ import annotations
 
-import os
 import csv
 import logging
-from typing import Any, Dict, List, Optional, Tuple
-import numpy as np
+import os
+from typing import Any
+
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.spatial import ConvexHull, distance_matrix
-from hocuspockets.constants import HYDROPHOBICITY_SCALE, AROMATIC_RESIDUES
+
 from hocuspockets import pdb_utils
+from hocuspockets.constants import AROMATIC_RESIDUES, HYDROPHOBICITY_SCALE
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +82,7 @@ class ScoringPockets:
         self.logger = logger
         self.hydro = HYDROPHOBICITY_SCALE
 
-    def plot_cavity(self, coordinates: List[List[float]], pocket_file: str) -> None:
+    def plot_cavity(self, coordinates: list[list[float]], pocket_file: str) -> None:
         """
         Plots a 3D representation of a cavity including its convex hull and atoms.
 
@@ -121,8 +124,8 @@ class ScoringPockets:
 
     @staticmethod
     def calculate_geometric_descriptors(
-        lines: List[str], grid_file_path: str
-    ) -> Tuple[float, float, float, float, float, float]:
+        lines: list[str], grid_file_path: str
+    ) -> tuple[float, float, float, float, float, float]:
         """
         Calculates the volume, surface area, radius, diameter, smallest size,
         and minimal enclosing cylinder for a cavity defined by atomic coordinates.
@@ -172,8 +175,7 @@ class ScoringPockets:
             # Compute the plane separation distance
             plane_distance = max_distance - min_distance
             # Check if this is the smallest valid enclosing pair of planes
-            if plane_distance < smallest_size:
-                smallest_size = plane_distance
+            smallest_size = min(smallest_size, plane_distance)
         # Compute minimal enclosing cylinder radius
         cylinder_radius = 0
         for axis in [
@@ -192,7 +194,7 @@ class ScoringPockets:
 
     def calculate_residue_descriptors(
         self, residue_file: str
-    ) -> Tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         """
         Calculates the average hydrophobicity of residues of the pocket,
         along with frequencies of aromatic residues and Tyr(OH) atoms.
@@ -298,13 +300,13 @@ class ScoringPockets:
         return sum(values) / len(values) if values else 0.0
 
     def calculate_geometric_center(
-        self, pdb_lines: List[str]
-    ) -> Tuple[float, float, float]:
+        self, pdb_lines: list[str]
+    ) -> tuple[float, float, float]:
         center = pdb_utils.calculate_geometric_center(pdb_lines)
         return tuple(center)
 
     def save_cavity_scores(
-        self, cavity_path: str, scores: List[Dict[str, Any]]
+        self, cavity_path: str, scores: list[dict[str, Any]]
     ) -> None:
         """
         Saves the calculated cavity scores for different programs into a CSV file.
@@ -383,8 +385,8 @@ class ScoringPockets:
     def score_routine(
         self,
         cavity_path: str,
-        program_cavities: Dict[str, List[Dict[str, Any]]],
-        cavity_ids: Dict[Optional[str], int],
+        program_cavities: dict[str, list[dict[str, Any]]],
+        cavity_ids: dict[str | None, int],
     ) -> None:
         """
         Main scoring routine that processes cavities from different programs,

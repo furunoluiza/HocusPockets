@@ -17,12 +17,13 @@ Fukui potentials, and outputs a PDB file with their full atomic representation.
 This module is a core component of the HocusPockets workflow for identifying and prioritizing
 potentially druggable and catalytically relevant pockets in protein structures.
 """
+from __future__ import annotations
 
-import os
 import logging
-from typing import Dict, Optional, Set, Tuple
-from hocuspockets.constants import CAVITY_PROGRAMS
+import os
+
 from hocuspockets import pdb_utils
+from hocuspockets.constants import CAVITY_PROGRAMS
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class CatalyticCav:
             self.fukushima_file, descriptor_name="Fukushima"
         )
 
-    def extract_residue_index_mapping(self) -> Dict[int, str]:
+    def extract_residue_index_mapping(self) -> dict[int, str]:
         residue_map = pdb_utils.build_residue_index_map(self.pdb_path)
         self.logger.info(
             f"Extracted {len(residue_map)} residues with chain IDs from PDB."
@@ -92,7 +93,7 @@ class CatalyticCav:
 
     def load_bfactor_values(
         self, pdb_file: str, descriptor_name: str = "Descriptor"
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Parses a PDB file to extract B-factor values for individual atoms (not residues),
         mapping them to the corresponding residue and chain using the reference PDB order.
@@ -129,16 +130,16 @@ class CatalyticCav:
         )
         return atom_values
 
-    def get_residues_from_pdb(self, pdb_path: str) -> Set[str]:
+    def get_residues_from_pdb(self, pdb_path: str) -> set[str]:
         return pdb_utils.extract_residue_ids(pdb_path)
 
     def compute_average(
         self,
-    ) -> Tuple[
-        Dict[Tuple[str, str], Optional[float]],
-        Dict[Tuple[str, str], Optional[float]],
-        Dict[Tuple[str, str], float],
-        Dict[Tuple[str, str], Optional[float]],
+    ) -> tuple[
+        dict[tuple[str, str], float | None],
+        dict[tuple[str, str], float | None],
+        dict[tuple[str, str], float],
+        dict[tuple[str, str], float | None],
     ]:
         """
         Computes the average Fukui and Fukushima values for each cavity.
@@ -297,6 +298,6 @@ class CatalyticCav:
         self.logger.debug(
             "Catalytic residues: %d selected out of %d residues (%d atoms written)",
             len(selected_residues),
-            len(set(r for _, r, _ in pdb_atoms)),
+            len({r for _, r, _ in pdb_atoms}),
             len(selected_lines),
         )

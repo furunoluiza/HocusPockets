@@ -1,10 +1,10 @@
 import os
 
 from hocuspockets import setup_logging
-from hocuspockets.initialize import args_parse, verify_input
 from hocuspockets.cavity_finder import CavityFinder
-from hocuspockets.reactivity import Reactivity
 from hocuspockets.color import clrs
+from hocuspockets.initialize import args_parse, verify_input
+from hocuspockets.reactivity import Reactivity
 
 # Description
 ###############################################################################
